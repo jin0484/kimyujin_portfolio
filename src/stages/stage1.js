@@ -129,21 +129,23 @@ function tick(now) {
   if (live.length) requestAnimationFrame(tick); else { loopOn = false; if (anim) render(); }
 }
 
-/* ── 그리기 ── */
+/* ── 조판: 큰 글씨 위치 + 작은 글씨 조각(runs) 계산. 큰 글씨가 바뀔 때만 호출 ── */
+let bigDraw = [];   // 그릴 큰 글자 { ch, x, y, size }
+let runs = [];      // 작은 글씨 조각 { x, cy, text }
 export function render() {
-  ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
+  bigDraw = []; runs = [];
 
-  /* 1) 큰 글씨 — 중심 (x, y) 기준으로 잉크를 가운데 맞춤. 화면과 마스크에 같이 찍음 */
+  /* 1) 큰 글씨 — 중심 (x, y) 기준으로 잉크를 가운데 맞춤. 마스크에 찍어 윤곽 판정에 씀 */
   const boxes = [];                                              // 잉크 박스 (마스크를 훑을 범위만 좁히는 용도)
-  ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
   mctx.setTransform(ms, 0, 0, ms, 0, 0); mctx.clearRect(0, 0, W, H);
   mctx.fillStyle = '#000'; mctx.textBaseline = 'alphabetic';
   for (const g of live) {
     if (g.cur < 1) continue;
     const m = measureBig(g.ch), sc = g.cur / REF;
     const ox = g.x - (m.r - m.l) * sc / 2 , base = g.y + (m.asc - m.desc) * sc / 2;
-    ctx.font = mctx.font = '900 ' + g.cur + 'px ' + FAMILY;
-    ctx.fillText(g.ch, ox, base); mctx.fillText(g.ch, ox, base);
+    mctx.font = '900 ' + g.cur + 'px ' + FAMILY;
+    mctx.fillText(g.ch, ox, base);
+    bigDraw.push({ ch: g.ch, x: ox, y: base, size: g.cur });
     boxes.push({ x0: ox - m.l * sc, x1: ox + m.r * sc, y0: base - m.asc * sc, y1: base + m.desc * sc });
   }
   const md = boxes.length ? mctx.getImageData(0, 0, mw, mh).data : null;
@@ -168,8 +170,7 @@ export function render() {
     return runs;
   }
 
-  /* 2) 작은 글씨 — 단마다 행 단위로 빈 구간만 채움 */
-  ctx.font = smallFont; ctx.textBaseline = 'middle';
+  /* 2) 작은 글씨 — 단마다 행 단위로 빈 구간만 채움 (그리지 않고 조각만 만듦) */
   const pad = fs * TUNE.wrapPad, len = DUMMY.length;
   cols.forEach((col, c) => {
     let off = (c * 997) % len;                                   // 단마다 이어지는 글 위치
@@ -194,10 +195,20 @@ export function render() {
           if (px + w > b) break;
           run += ch; px += w; off++;
         }
-        if (run) ctx.fillText(run, a, cy);
+        if (run) runs.push({ x: a, cy, text: run });
       }
     }
   });
+  draw();
+}
+
+/* ── 그리기: 큰 글씨 + 작은 글씨 조각 ── */
+function draw() {
+  ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
+  for (const g of bigDraw) { ctx.font = '900 ' + g.size + 'px ' + FAMILY; ctx.fillText(g.ch, g.x, g.y); }
+  ctx.font = smallFont; ctx.textBaseline = 'middle'; ctx.fillStyle = ink;
+  for (const r of runs) ctx.fillText(r.text, r.x, r.cy);
 }
 
 /* ── 입력 ── */
