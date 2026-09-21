@@ -1,0 +1,14 @@
+/* ══════════ STAGE 3 — 먼지 + 타이핑 ══════════ */
+#s3 { opacity: 0; pointer-events: none }
+#dust { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+#type {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  display: flex; justify-content: center; align-items: center;
+  font-family: var(--grot); font-weight: 500;
+  font-size: clamp(26px, 5.4vw, 76px); letter-spacing: -.035em;
+}
+#caret {
+  display: inline-block; width: .52em; height: 1em; background: var(--ink);
+  margin-left: .1em; transform: translateY(.12em); animation: bl .9s step-end infinite;
+}
+@keyframes bl { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }

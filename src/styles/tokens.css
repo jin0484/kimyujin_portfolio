@@ -1,0 +1,10 @@
+/* 디자인 토큰 — 색 · 폰트. 순수 흑백만, 컬러 없음 */
+:root {
+  color-scheme: light;
+  --paper: #FFFFFF;
+  --ink:   #0A0A0A;
+  --mut:   #6B6B66;
+  --hair:  #D6D6D0;
+  --grot:  'Archivo', 'Gothic A1', sans-serif;
+  --serif: 'Gowun Batang', serif;
+}
