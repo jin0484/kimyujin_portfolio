@@ -8,7 +8,7 @@
   font-size: clamp(26px, 5.4vw, 76px); letter-spacing: -.035em;
 }
 #caret {
-  display: inline-block; width: .52em; height: 1em; background: var(--ink);
+  display: inline-block; width: .26em; height: 1em; background: var(--main);
   margin-left: .1em; transform: translateY(.12em); animation: bl .9s step-end infinite;
 }
 @keyframes bl { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }
