@@ -4,6 +4,7 @@
   position: absolute; left: 0; top: 0; width: 1920px;
   transform-origin: 0 0; will-change: transform;
   --s1step: .5s; --s1stepEase: cubic-bezier(.5, 0, .5, 1);   /* 휠 시퀀스: 프레임 간 시간(전체 = ×7) · 전체에 한 번 걸리는 이징. 앞뒤 대칭이어야 되감기가 정방향의 거울이 됨 */
+  --s1wrap: .35;      /* 초록 본문: 26프레임 중 한 구간에서 줄 구조를 갈아끼우는 데 쓰는 비율(0~1). 앞부분은 줄이 고정된 채 폭만 벌어지고, 끝 이만큼에서만 살짝 갈아끼운다. 낮추면 또렷·툭툭, 높이면 부드럽지만 잔상 */
 }
 #s1stage img { position: absolute; display: block }
 #s1grid { left: 60px; top: 60px; width: 1800px; height: calc(100% - 120px) }   /* 사방 60px 여백, 세로는 늘어남 */
@@ -36,9 +37,11 @@
   letter-spacing: -0.36px; text-align: justify; word-break: break-word; color: var(--main);
   clip-path: inset(0 0 100% 0);   /* 처음엔 가려져 있다가 stage1.js 가 한 줄씩(steps) 내려서 드러냄 */
 }
-/* 단어 하나 = span 하나, 두 벌(.layer)을 겹쳐 두고 조판이 바뀔 땐 크로스페이드. 자리는 stage1.js 가 transform 으로 */
-#s1body .layer { position: absolute; inset: 0 }
-#s1body .layer span { position: absolute; left: 0; top: 0; white-space: pre; will-change: transform }
+/* 단위(단어 또는 글자) 하나 = span 하나. 폭이 바뀔 때마다 stage1.js 가 줄을 다시 나눠 transform 으로 자리를 옮긴다.
+   두 벌(.layer)은 여백 본문 / 바뀐 글 — 글이 갈리는 구간에서만 겹쳐 페이드한다.
+   span 마다 will-change 를 걸면 합성 레이어가 단어 수만큼(1000개 넘게) 생겨 되레 끊기므로, 겹치는 "벌" 에만 건다 */
+#s1body .layer { position: absolute; inset: 0; will-change: opacity; contain: layout style paint }
+#s1body .layer span { position: absolute; left: 0; top: 0; white-space: pre }
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    스왑(YUJIN 크게) 배치와 퇴장은 stage1.js 의 NAME_A/NAME_B·FRAMES 가 인라인으로 */
