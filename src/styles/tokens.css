@@ -1,14 +1,11 @@
 /* 디자인 토큰 — 색 · 폰트 */
-@font-face { font-family: 'Dotline'; src: url(/fonts/dotline.ttf) format('truetype'); font-display: swap }   /* 엘점선체 */
 :root {
   color-scheme: light;
-  --bg:    #F3F3F3;  /* 배경(bg) 컬러 — 모든 화면 공통 */
-  --paper: var(--bg);  /* 지면 = 배경. 코드 곳곳에서 --paper 로 참조 */
+  --bg:    #F3F3F3;  /* 배경(bg) 컬러 */
+  --paper: var(--bg);  /* 지면 = 배경 */
   --ink:   #0A0A0A;
   --mut:   #6B6B66;
   --hair:  #D6D6D0;
   --main:  #C3DCA8;  /* 메인 컬러 */
   --grot:  'Archivo', 'Gothic A1', sans-serif;
-  --serif: 'Gowun Batang', serif;
-  --dot:   'Dotline', sans-serif;   /* 엘점선체 — 화면 3 '비어 있는 게 아니라' */
 }

@@ -4,15 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>김유진 — UI/UX Designer Portfolio</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=Gothic+A1:wght@300;400;500;700;900&family=Gowun+Batang:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=Gothic+A1:wght@300;400;500;700;900&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 </head>
 <body>
 
-<div id="scroller"></div>
-
-<!-- 화면 1: Figma #1 프레임. 1920×1080 무대를 scale (src/stages/stage1.js). 본문은 data.js 의 DUMMY -->
-<section class="layer" id="s1" aria-label="1. 김유진">
+<!-- 화면 1: Figma #1 프레임. 1920 기준 무대를 화면에 맞춰 scale (src/stages/stage1.js). 본문은 data.js 의 DUMMY -->
+<section class="layer" id="s1" aria-label="김유진">
   <div id="s1stage">
     <img id="s1grid" src="/s1/grid.svg" alt="" width="1800" height="960">
     <p id="s1body"></p>
@@ -27,32 +25,6 @@
     <img class="s1-n"  src="/s1/n.svg"  alt="N" width="193.889" height="234.404">
   </div>
 </section>
-
-<!-- 화면 2: 다단 본문(DUMMY)이 화면을 꽉 채움. 텍스트는 stage2.js 가 data.js 에서 채움 -->
-<section class="layer" id="s2" aria-label="2. 정렬된 지면">
-  <canvas id="s2grid"></canvas>
-  <div class="cols" id="s2cols"></div>
-  <div id="holes"></div>
-</section>
-
-<section class="layer" id="s3" aria-label="3. 마지막 한 문장">
-  <canvas id="dust"></canvas>
-  <div id="type"><span id="typed"><span id="t1"></span><span id="t2"></span><span id="t3"></span><span id="t4"></span></span><i id="caret"></i></div>
-</section>
-
-<div id="rail"><div id="railfill"></div></div>
-<div id="nudge"><span id="nudgetxt"></span></div>
-
-<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
-  <div id="sheet">
-    <button id="close" aria-label="닫기">CLOSE ✕</button>
-    <h2 id="mt"></h2>
-    <div class="mm" id="mm"></div>
-    <div class="slab" id="sl1"></div>
-    <div class="slab" id="sl2"></div>
-    <p>여기가 프로젝트 상세 페이지로 이어지는 자리. 문제 정의 → 리서치 → 와이어프레임 → 최종 화면 순으로 채우면 돼.</p>
-  </div>
-</div>
 
 <script type="module" src="/src/main.js"></script>
 </body>

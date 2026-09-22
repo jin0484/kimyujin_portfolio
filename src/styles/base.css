@@ -2,11 +2,8 @@
 body {
   margin: 0; background: var(--paper); color: var(--ink);
   font-family: var(--grot); -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow: hidden;
 }
-/* #scroller 의 높이는 data.js 의 SCROLL_HEIGHT 로 main.js 에서 설정 */
-
 .layer {
   position: fixed; inset: 0; overflow: hidden; background: var(--paper);
-  will-change: opacity;
 }

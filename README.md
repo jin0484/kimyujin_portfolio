@@ -1,48 +1,26 @@
-# 포트폴리오 — 김유진
+# 김유진 — 포트폴리오
 
-`prototype.html` 을 Vite + 바닐라 JS 프로젝트로 정리한 것. 동작은 프로토타입과 동일.
-설계 의도와 알려진 한계는 [SPEC.md](SPEC.md) 참고.
-
-## 실행
-
-```bash
-npm install
-npm run dev
-```
-
-## 구조
+Vite + 바닐라 JS. `npm run dev` 로 실행.
 
 ```
-index.html              마크업 골격 (텍스트는 data.js 에서 채움)
+index.html              화면 1 마크업 (Figma #1 프레임)
+public/s1/              화면 1 에셋 — 격자·KIM YUJIN 글자·2026 PORTFOLIO (Figma 에서 받은 SVG)
 src/
-  main.js               초기화 + 스크롤 오케스트레이션 (frame)
-  data.js               ★ 고칠 값은 전부 여기: 텍스트 · 프로젝트 · 구멍 위치 · 스크롤 구간 · 튜닝 수치
-  state.js              화면 간 공유 상태 (stage, punched)
-  utils.js              $, cl, smooth, lerp, 환경 감지 (fine / reduce)
-  chrome.js             진행 레일 · 화면 라벨 · 안내 문구
-  modal.js              프로젝트 모달 (임시 — 상세 페이지 라우팅으로 교체 예정)
-  stages/
-    stage1.js           화면 1 — Figma #1 프레임(1920×1080)을 화면에 맞춰 scale. 좌표는 stage1.css, 에셋은 public/s1/
-    stage2.js           화면 2 — 직접 조판(단·행·빈 구간) + 클릭한 곳에 원 파내기, 글자가 원을 감쌈
-    stage3.js           화면 3 — 먼지 파티클 + 타이핑
+  main.js               초기화 · 리사이즈
+  data.js               ★ 손으로 고칠 값 — 본문(DUMMY)
+  utils.js
+  stages/stage1.js      화면 1 — 1920 기준 무대를 화면 폭에 맞춰 scale, 본문 한 줄씩 등장, KIM/YUJIN 호버 스왑
   styles/
-    index.css           스타일 진입점 (@import 순서)
     tokens.css          ★ CSS 변수 (색 · 폰트)
-    base.css            리셋 · body · .layer
-    stage1.css / stage2.css / stage3.css
-    chrome.css / modal.css
-prototype.html          원본 프로토타입 (참고용, 손대지 않음)
-refs/                   레퍼런스 이미지
+    base.css
+    stage1.css          ★ 좌표·크기 (Figma 값 그대로), 호버 스왑 좌표·시간
 ```
-
-## 자주 고칠 것 → `src/data.js`
 
 | 바꾸고 싶은 것 | 어디 |
 |---|---|
-| 더미 본문 | `DUMMY` |
-| 프로젝트 6개 (이름 · 메타 · 도형) | `PROJ`, `SHAPES` |
-| 구멍 크기 (위치는 클릭한 곳) | `HOLE_SIZES` 반지름% |
-| 마지막 슬로건 | `SLOGAN` |
-| 스크롤 구간 | `T`, `SCROLL_HEIGHT` |
-| 격자 농도 · 파티클 수 · 타이핑 속도 등 | `TUNE` |
-| 안내 문구 · 화면 라벨 | `LABELS` |
+| 본문 글 | `data.js` `DUMMY` |
+| 배경·메인 컬러 | `tokens.css` `--bg`, `--main` |
+| 글자 위치·크기, 호버 이동 시간 | `stage1.css` |
+| 격자·글자 모양 | Figma 에서 다시 내보내 `public/s1/` 교체 |
+
+화면 2(신문 조판·파내기)·화면 3(먼지·타이핑)은 2026-09-22 제거 — 필요하면 커밋 `714a960` 참고.

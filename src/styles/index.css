@@ -1,8 +1,4 @@
-/* 스타일 진입점 — 토큰 → 베이스 → 화면별 → 크롬 → 모달 순 */
+/* 스타일 진입점 — 토큰 → 베이스 → 화면 */
 @import './tokens.css';
 @import './base.css';
 @import './stage1.css';
-@import './stage2.css';
-@import './stage3.css';
-@import './chrome.css';
-@import './modal.css';
