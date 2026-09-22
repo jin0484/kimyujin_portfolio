@@ -1,6 +1,6 @@
 # 김유진 — 포트폴리오
 
-Vite + 바닐라 JS. `npm run dev` 로 실행.
+Vite + 바닐라 JS. `npm run dev` 로 실행. 의존성은 Pretext(`@chenglou/pretext`, 본문 줄바꿈 계산) 하나.
 
 ```
 index.html              화면 1 마크업 (Figma #1 프레임)
