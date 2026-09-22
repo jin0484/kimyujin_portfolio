@@ -1,25 +1,44 @@
-/* ══════════ STAGE 1 — 격자 지면 ══════════
-   격자는 canvas(#flowcv), 요소는 #s1els 안의 DOM. 셀 배치·글자 크기는 data.js 의 S1 */
-#flowcv { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
-#s1els { position: absolute; inset: 0; overflow: hidden; color: var(--ink); font-family: var(--grot); pointer-events: none }
-#s1els .s1e, #s1els .s1ln { position: absolute; white-space: pre; box-sizing: border-box }
-#s1els .s1ln { display: none }
-
-/* 라벨 */
-.s1-head  { font-weight: 500; letter-spacing: -.02em; padding: .1em .35em }
-.s1-date  { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 400; padding: .1em .35em }
-.s1-addr  { color: var(--mut); padding: .3em .35em }
-.s1-count { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 500; letter-spacing: -.04em; padding: 0 .1em }
-.s1-logo  { text-align: right; font-weight: 700; letter-spacing: .02em; padding-right: .3em }
-
-/* 본문 줄 */
-.s1ln.s1-body, .s1ln.s1-big, .s1ln.s1-tiny { padding-left: .35em }
-.s1ln.s1-big  { font-weight: 500; letter-spacing: -.01em }
-.s1ln.s1-tiny { color: var(--mut) }
-
-/* 이미지 자리 — 검정 사각형 + 대각선 X */
-.s1-img {
-  background: var(--ink) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0L100 100M100 0L0 100' stroke='%23F3F3F3' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>") center / 100% 100% no-repeat;
+/* ══════════ STAGE 1 — Figma #1 프레임 ══════════
+   폭 1920 무대를 화면 폭에 맞춰 scale, 높이는 뷰포트에 맞춤 (src/stages/stage1.js). 좌표는 Figma 값 그대로 */
+#s1stage {
+  position: absolute; left: 0; top: 0; width: 1920px;
+  transform-origin: 0 0; will-change: transform;
 }
-/* 밑줄 — 셀 아래쪽에 굵은 선 하나 */
-.s1-rule { border-bottom: 2px solid var(--ink) }
+#s1stage img { position: absolute; display: block }
+#s1grid { left: 60px; top: 60px; width: 1800px; height: calc(100% - 120px) }   /* 사방 60px 여백, 세로는 늘어남 */
+#s1year { left: 1574px; top: 60px; width: 286px; height: 25px }               /* 2026 PORTFOLIO — 오른쪽 위 */
+
+/* 본문 — Pretendard Medium 18/26, 메인 컬러, 양끝맞춤. 왼쪽 2단 (Figma 메모: 자소서 내용, 읽으라고 넣는 건 아님) */
+#s1body {
+  position: absolute; left: 61px; top: 60px; width: 585px; height: calc(100% - 120px); overflow: hidden; margin: 0;
+  font-family: 'Pretendard', var(--grot); font-weight: 500; font-size: 18px; line-height: 26px;
+  letter-spacing: -0.36px; text-align: justify; word-break: break-word; color: var(--main);
+  clip-path: inset(0 0 100% 0);   /* 처음엔 가려져 있다가 stage1.js 가 한 줄씩(steps) 내려서 드러냄 */
+}
+
+/* KIM YUJIN — 글자별 SVG, Figma 좌표. 바닥 기준(bottom = 1080 − (top+height))으로 붙여서 높이가 달라져도 아래에 남음 */
+.s1-k  { left: 61px;       bottom: 60.14px; width: 249.138px; height: 370.86px }
+.s1-i  { left: 362.024px;  bottom: 60.18px; width: 56.441px;  height: 370.817px }
+.s1-m  { left: 469.425px;  bottom: 60px;    width: 482.636px; height: 378px }
+.s1-y  { left: 969px;      bottom: 60px;    width: 195px;     height: 234px }
+.s1-u  { left: 1213px;     bottom: 60px;    width: 187px;     height: 234px }
+.s1-j  { left: 1448.601px; bottom: 60px;    width: 84.118px;  height: 233.997px }
+.s1-i2 { left: 1582px;     bottom: 61px;    width: 34px;      height: 233px }
+.s1-n  { left: 1664.629px; bottom: 59.6px;  width: 193.889px; height: 234.404px }
+
+/* ── 호버 스왑 (Figma #2 프레임): YUJIN 에 호버 → YUJIN 이 크게, KIM 이 작게. 작아진 KIM 에 호버 → 원래대로.
+   좌표는 Figma #2 값 그대로 (bottom = 1080 − (top+height)). 8글자 전부 같은 시간·이징으로 움직임 */
+#s1stage img[class^="s1-"] {
+  transition: left var(--s1swap) var(--s1ease), bottom var(--s1swap) var(--s1ease),
+              width var(--s1swap) var(--s1ease), height var(--s1swap) var(--s1ease);
+  pointer-events: auto;
+}
+#s1stage { --s1swap: .7s; --s1ease: cubic-bezier(.65, 0, .2, 1) }
+#s1stage.yujin .s1-k  { left: 60px;       bottom: 60px;   width: 156px; height: 232px }
+#s1stage.yujin .s1-i  { left: 248px;      bottom: 60px;   width: 35px;  height: 232px }
+#s1stage.yujin .s1-m  { left: 315px;      bottom: 60px;   width: 301px; height: 236px }
+#s1stage.yujin .s1-y  { left: 585px;      bottom: 59.6px; width: 312px; height: 374px }
+#s1stage.yujin .s1-u  { left: 937.482px;  bottom: 59.6px; width: 300px; height: 374px }
+#s1stage.yujin .s1-j  { left: 1276.482px; bottom: 59.6px; width: 136px; height: 374px }
+#s1stage.yujin .s1-i2 { left: 1451.482px; bottom: 60.6px; width: 55px;  height: 373px }
+#s1stage.yujin .s1-n  { left: 1547.482px; bottom: 59.6px; width: 312px; height: 374px }

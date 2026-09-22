@@ -7,7 +7,7 @@ import './styles/index.css';
 import { SCROLL_HEIGHT, T } from './data.js';
 import { $, cl } from './utils.js';
 import { state } from './state.js';
-import { initStage1, refresh as refreshStage1, updateStage1 } from './stages/stage1.js';
+import { initStage1, refresh as refreshStage1 } from './stages/stage1.js';
 import { initStage2, buildHoles, layoutText, revealCols } from './stages/stage2.js';
 import { initStage3, sizeCanvas, resetParts, updateStage3 } from './stages/stage3.js';
 import { initModal } from './modal.js';
@@ -30,7 +30,6 @@ function frame() {
   s3.style.opacity = o3;
   s1.style.filter = o1 < 1 ? 'blur(' + ((1 - o1) * 4).toFixed(1) + 'px)' : 'none';
 
-  updateStage1(p);
   const ns = p < T.s1End + 0.04 ? 1 : (p < T.s2End + 0.02 ? 2 : 3);
   if (ns !== state.stage) { state.stage = ns; setNudge(); }
   if (state.stage >= 2) revealCols();

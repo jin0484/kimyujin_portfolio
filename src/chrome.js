@@ -1,9 +1,9 @@
-/* ═══════════ CHROME — 진행 레일 · 화면 라벨 · 안내 문구 ═══════════ */
+/* ═══════════ CHROME — 진행 레일 · 안내 문구 ═══════════ */
 import { HOLE_SIZES, LABELS } from './data.js';
 import { $ } from './utils.js';
 import { state } from './state.js';
 
-const railfill = $('#railfill'), stagelabel = $('#stagelabel'),
+const railfill = $('#railfill'),
       nudge = $('#nudge'), nudgetxt = $('#nudgetxt');
 
 export function setNudge() {
@@ -22,5 +22,4 @@ export function setNudge() {
 
 export function updateChrome(p) {
   railfill.style.height = (p * 100) + '%';
-  stagelabel.textContent = LABELS.stage[state.stage - 1];
 }

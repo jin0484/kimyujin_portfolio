@@ -5,15 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>김유진 — UI/UX Designer Portfolio</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=Gothic+A1:wght@300;400;500;700;900&family=Gowun+Batang:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 </head>
 <body>
 
 <div id="scroller"></div>
 
-<!-- 화면 1: 격자 지면. 격자는 캔버스, 요소는 #s1els (src/stages/stage1.js, 배치는 data.js 의 S1) -->
-<section class="layer" id="s1" aria-label="1. 격자 지면">
-  <canvas id="flowcv" role="img" aria-label="6단 4행 격자"></canvas>
-  <div id="s1els" aria-hidden="true"></div>
+<!-- 화면 1: Figma #1 프레임. 1920×1080 무대를 scale (src/stages/stage1.js). 본문은 data.js 의 DUMMY -->
+<section class="layer" id="s1" aria-label="1. 김유진">
+  <div id="s1stage">
+    <img id="s1grid" src="/s1/grid.svg" alt="" width="1800" height="960">
+    <p id="s1body"></p>
+    <img id="s1year" src="/s1/year.svg" alt="2026 PORTFOLIO" width="286" height="25">
+    <img class="s1-k"  src="/s1/k.svg"  alt="K" width="249.138" height="370.86">
+    <img class="s1-i"  src="/s1/i.svg"  alt="I" width="56.441"  height="370.817">
+    <img class="s1-m"  src="/s1/m.svg"  alt="M" width="482.636" height="378">
+    <img class="s1-y"  src="/s1/y.svg"  alt="Y" width="195"     height="234">
+    <img class="s1-u"  src="/s1/u.svg"  alt="U" width="187"     height="234">
+    <img class="s1-j"  src="/s1/j.svg"  alt="J" width="84.118"  height="233.997">
+    <img class="s1-i2" src="/s1/i2.svg" alt="I" width="34"      height="233">
+    <img class="s1-n"  src="/s1/n.svg"  alt="N" width="193.889" height="234.404">
+  </div>
 </section>
 
 <!-- 화면 2: 다단 본문(DUMMY)이 화면을 꽉 채움. 텍스트는 stage2.js 가 data.js 에서 채움 -->
@@ -29,7 +41,6 @@
 </section>
 
 <div id="rail"><div id="railfill"></div></div>
-<div id="stagelabel"></div>
 <div id="nudge"><span id="nudgetxt"></span></div>
 
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
