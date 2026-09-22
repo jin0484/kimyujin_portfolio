@@ -74,9 +74,11 @@ function clear() {                                          // 진행도 0 — �
 }
 function tick(now) {
   const total = (parseFloat(getComputedStyle(stage).getPropertyValue("--s1step")) || 0.5) * 1000 * (FRAMES.length - 1);
-  prog += dir * Math.min(50, now - lastT) / total; lastT = now;
-  if (prog <= 0) { prog = 0; dir = 0; clear(); raf = 0; return; }
-  if (prog >= 1) { prog = 1; dir = 0; }
+  // rAF 타임스탬프는 프레임 시작 시각이라 휠 핸들러에서 찍은 lastT 보다 과거일 수 있음 → 음수 dt 는 0 으로
+  const dt = Math.max(0, Math.min(50, now - lastT)); lastT = now;
+  prog += dir * dt / total;
+  if (dir < 0 && prog <= 0) { prog = 0; dir = 0; clear(); raf = 0; return; }   // 되감기 끝
+  if (dir > 0 && prog >= 1) { prog = 1; dir = 0; }                             // 정방향 끝
   render(ease(prog));
   raf = dir ? requestAnimationFrame(tick) : 0;
 }
@@ -104,6 +106,16 @@ export function initStage1() {
   }, 150);
   for (const e of stage.querySelectorAll('.s1-y, .s1-u, .s1-j, .s1-i2, .s1-n')) e.addEventListener('pointerenter', () => { if (atStart()) stage.classList.add('yujin'); });
   for (const e of stage.querySelectorAll('.s1-k, .s1-i, .s1-m')) e.addEventListener('pointerenter', () => { if (atStart()) stage.classList.remove('yujin'); });
-  window.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > 4) play(e.deltaY > 0 ? 1 : -1); }, { passive: true });
+  // 휠 — 캡처 단계에서 받아서 어떤 요소 위에 있든 잡음. deltaMode 가 줄/페이지 단위인 환경(Firefox 등)도 방향만 보면 되므로 그대로
+  window.addEventListener('wheel', (e) => { if (e.deltaY !== 0) play(e.deltaY > 0 ? 1 : -1); }, { passive: true, capture: true });
+  // 키보드 — ↓/PageDown/Space 앞으로, ↑/PageUp 뒤로
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') play(1);
+    else if (e.key === 'ArrowUp' || e.key === 'PageUp') play(-1);
+  });
+  // 터치 — 세로 스와이프
+  let ty = null;
+  document.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if (ty == null) return; const d = ty - e.touches[0].clientY; if (Math.abs(d) > 24) { play(d > 0 ? 1 : -1); ty = null; } }, { passive: true });
 }
 
