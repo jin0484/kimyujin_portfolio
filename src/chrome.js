@@ -1,6 +1,6 @@
 /* ═══════════ CHROME — 진행 레일 · 화면 라벨 · 안내 문구 ═══════════ */
 import { HOLE_SIZES, LABELS } from './data.js';
-import { $, fine } from './utils.js';
+import { $ } from './utils.js';
 import { state } from './state.js';
 
 const railfill = $('#railfill'), stagelabel = $('#stagelabel'),
@@ -8,7 +8,7 @@ const railfill = $('#railfill'), stagelabel = $('#stagelabel'),
 
 export function setNudge() {
   if (state.stage === 1) {
-    nudgetxt.textContent = fine ? LABELS.nudge.mouse : LABELS.nudge.touch;
+    nudgetxt.textContent = LABELS.nudge.scroll;
     nudge.style.opacity = '1';
   } else if (state.stage === 2) {
     nudgetxt.innerHTML = state.punched >= HOLE_SIZES.length

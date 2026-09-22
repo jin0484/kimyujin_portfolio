@@ -5,9 +5,9 @@
 import './styles/index.css';
 
 import { SCROLL_HEIGHT, T } from './data.js';
-import { $, cl, fine } from './utils.js';
+import { $, cl } from './utils.js';
 import { state } from './state.js';
-import { initStage1, refresh as refreshStage1, startAutoTour } from './stages/stage1.js';
+import { initStage1, refresh as refreshStage1 } from './stages/stage1.js';
 import { initStage2, buildHoles, layoutText, revealCols } from './stages/stage2.js';
 import { initStage3, sizeCanvas, resetParts, updateStage3 } from './stages/stage3.js';
 import { initModal } from './modal.js';
@@ -61,6 +61,5 @@ setNudge(); updateChrome(0);
 
 function boot() {
   refreshStage1(); layoutText(); setNudge(); frame();   // 폰트 로드 후 다시 계측·조판
-  if (!fine) startAutoTour();
 }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot); else setTimeout(boot, 400);
