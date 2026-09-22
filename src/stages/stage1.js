@@ -106,6 +106,31 @@ function easeFn(name) {
 }
 const lerp = (a, b, t) => a + (b - a) * t;
 
+/* ── BODY 프레임 사이를 각지지 않게 잇는 곡선 (Fritsch–Carlson 단조 3차 에르미트) ──
+ *  Figma 프레임의 폭 변화량이 43~158px 로 들쭉날쭉해서, 직선으로 이으면 프레임을 지날 때마다 속도가 꺾인다
+ *  (경계 24곳 중 12곳이 30px 이상, 최대 158px). 프레임 값은 그대로 지나가되 사이를 3차 곡선으로 이어 속도까지 매끄럽게 한다.
+ *  단조 조건이 있어 프레임 값 밖으로 튀지 않는다 — 폭이 줄다 말고 더 좁아졌다 돌아오는 일이 없음.
+ *  FRAMES(글자·라벨·노트북)는 그대로 직선이다. 본문 트랙에만 건다. */
+function curve(y) {
+  const n = y.length, d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) d[i] = y[i + 1] - y[i];
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }     // 값이 그대로인 구간은 평평하게 (안 그러면 없던 움직임이 생김)
+    const a = m[i] / d[i], b = m[i + 1] / d[i], ss = a * a + b * b;
+    if (ss > 9) { const k = 3 / Math.sqrt(ss); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; }
+  }
+  return (i, t) => {                                        // 구간 i 안의 t(0~1) — 프레임 간격이 1 이라 h 항 생략
+    const t2 = t * t, t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * y[i] + (t3 - 2 * t2 + t) * m[i]
+         + (-2 * t3 + 3 * t2) * y[i + 1] + (t3 - t2) * m[i + 1];
+  };
+}
+// BODY 의 여섯 칸(left · width · height · lastAlign · text · fill)마다 곡선 하나. height 의 null 은 격자 전체 높이라 fullH 를 안 뒤에 짓는다
+let BC = null;
+function buildBodyCurves() { BC = [0, 1, 2, 3, 4, 5].map((k) => curve(BODY.map((f) => f[k] ?? fullH))); }
+
 /* ── 본문 조판 (Pretext) ──
  *  폭이 585 → 1799 → 587 로 세 배씩 변해서, 매 프레임 줄을 다시 나누면 이웃 프레임 사이에서도 단어의 58% 가
  *  줄을 갈아탄다 — 단어를 새 자리로 옮기는 방식으로는 한 프레임에 1600px 씩 날아가서 드드득거린다.
@@ -218,6 +243,7 @@ function measureFill() {                                      // 상자를 꽉 �
   if (h > 0) fullH = h;
   nAll = tsA.fitCount(BODY[0][1], fullH > 0 ? fullH : 1e4, 2);   // 처음: 격자 아래선까지 꽉 — 걸치는 줄은 잘리게 두 줄 더
   nSeq = tsA.fitCount(BODY[0][1], H_SEQ);                        // 시퀀스: 479px(18줄), Figma 그대로
+  buildBodyCurves();                                             // 높이 칸에 fullH 가 들어가므로 여기서 같이 짓는다
 }
 
 let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, bodyEase = null, lockUntil = 0, wrapFade = 0.35;   // pos: 프레임 단위 위치 0 ~ n
@@ -228,17 +254,17 @@ const STOPS = [0, ...FRAMES.map((f, i) => (f.stop ? i : -1)).filter((i) => i > 0
 // p 는 이징 **전** 위치다: 본문은 --s1bodyEase 로 따로 이징한다(양끝 더 느리게, 가운데 더 빠르게).
 // KIM YUJIN·2026 PORTFOLIO·노트북은 --s1stepEase 를 그대로 쓰므로 서로 영향이 없다.
 function renderBody(p) {
-  if (!tsA) return;
+  if (!tsA || !BC) return;
   const u01 = Math.min(1, Math.max(0, (p - BODY_FROM) / (BODY_TO - BODY_FROM)));
   const u = (bodyEase ? bodyEase(u01) : u01) * (BODY.length - 1);
   const i = Math.min(BODY.length - 2, Math.floor(u)), t = u - i;
   const A = BODY[i], B = BODY[i + 1];
-  const x = lerp(A[0], B[0], t), w = lerp(A[1], B[1], t);
-  const lastAlign = lerp(A[3], B[3], t), mix = lerp(A[4], B[4], t), nVis = lerp(nAll, nSeq, lerp(A[5], B[5], t));
+  const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);            // 0~1 칸은 부동소수 오차로 넘지 않게
+  const x = BC[0](i, t), w = BC[1](i, t);
+  const lastAlign = cl(BC[3](i, t)), mix = cl(BC[4](i, t)), nVis = lerp(nAll, nSeq, cl(BC[5](i, t)));
   bodyClip.style.left = x + 'px'; bodyClip.style.width = w + 'px';
   // 높이를 아직 못 쟀는데 격자 전체 높이(null)가 섞인 구간이면 인라인을 비워 CSS(calc)에 맡긴다 — 0px 을 써넣어 본문이 통째로 사라지는 걸 막는다
-  bodyClip.style.height = fullH > 0 || (A[2] != null && B[2] != null)
-    ? lerp(A[2] ?? fullH, B[2] ?? fullH, t) + 'px' : '';
+  bodyClip.style.height = fullH > 0 || (A[2] != null && B[2] != null) ? BC[2](i, t) + 'px' : '';
   body.style.width = w + 'px';
   // 구간의 앞부분은 줄 구조를 그대로 둔 채 폭만 벌어지고(단어가 줄을 안 건넘), 끝 wrapFade 만큼에서 다음 구조로 갈아낀다
   const ft = t <= 1 - wrapFade ? 0 : (t - (1 - wrapFade)) / wrapFade;
