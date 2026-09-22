@@ -7,6 +7,15 @@
 #s1stage img { position: absolute; display: block }
 #s1grid { left: 60px; top: 60px; width: 1800px; height: calc(100% - 120px) }   /* 사방 60px 여백, 세로는 늘어남 */
 #s1year { left: 1574px; top: 60px; width: 286px; height: 25px }               /* 2026 PORTFOLIO — 오른쪽 위 */
+/* 노트북 — 6단 (Figma: 1553 · 307×244). 항상 N 위 20px: 작은 N 위(786) → bottom 1080 − (786 − 20) */
+#s1laptop {
+  position: absolute; left: 1553px; width: 307px; height: 244px; overflow: hidden;
+  bottom: 314px;
+  transform: scaleX(-1);                                    /* Figma 에서 좌우 반전됨 */
+  transition: bottom var(--s1swap) var(--s1ease);           /* YUJIN 커질 때 같이 올라감 */
+}
+#s1stage.yujin #s1laptop { bottom: 453.6px }               /* 커진 N 위(646.4) 에서 20px 띄움: 1080 − (646.4 − 20) */
+#s1laptop img { position: absolute; left: -12.74%; top: -13.91%; width: 123.73%; height: 129.19% }   /* Figma 크롭 그대로 */
 
 /* 본문 — Pretendard Medium 18/26, 메인 컬러, 양끝맞춤. 왼쪽 2단 (Figma 메모: 자소서 내용, 읽으라고 넣는 건 아님) */
 #s1body {
