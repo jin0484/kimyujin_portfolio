@@ -4,16 +4,20 @@ Vite + 바닐라 JS. `npm run dev` 로 실행.
 
 ```
 index.html              화면 1 마크업 (Figma #1 프레임)
+work.html               두 번째 페이지 — 노트북 클릭 시. Figma "Work #1": 지금은 격자만 (임시)
+vite.config.js          페이지 두 개 빌드 설정
 public/s1/              화면 1 에셋 — 격자·KIM YUJIN 글자·2026 PORTFOLIO (Figma 에서 받은 SVG)
 src/
   main.js               초기화 · 리사이즈
+  work.js               work.html 진입점
   data.js               ★ 손으로 고칠 값 — 본문(DUMMY)
   utils.js
   stages/stage1.js      화면 1 — 1920 기준 무대를 화면 폭에 맞춰 scale, 본문 한 줄씩 등장, KIM/YUJIN 호버 스왑
   styles/
     tokens.css          ★ CSS 변수 (색 · 폰트)
     base.css
-    stage1.css          ★ 좌표·크기 (Figma 값 그대로), 호버 스왑 좌표·시간
+    stage1.css          ★ 좌표·크기 (Figma 값 그대로), 호버 스왑 좌표·시간, CLICK 깜빡임
+    work.css            work 페이지
 ```
 
 | 바꾸고 싶은 것 | 어디 |

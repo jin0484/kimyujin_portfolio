@@ -15,7 +15,17 @@
     <img id="s1grid" src="/s1/grid.svg" alt="" width="1800" height="960">
     <div id="s1bodyclip"><p id="s1body"></p></div>
     <div id="s1yearclip"><img id="s1year" src="/s1/year.svg" alt="2026 PORTFOLIO" width="286" height="25"></div>   <!-- 창 안에서 위로 올라가며 격자 윗선에 잘려 사라짐 -->
-    <div id="s1laptop"><img src="/s1/laptop.png" alt="" width="1374" height="1145"></div>   <!-- 노트북 — Figma 에서 좌우 반전·크롭된 상태 그대로 -->
+    <!-- 노트북 — 클릭하면 work.html. 사진은 Figma 에서 좌우 반전·크롭된 상태 그대로, 화면 안 CLICK 은 글자별 SVG 가 깜빡임 -->
+    <a id="s1laptop" href="/work.html" aria-label="작업 보기">
+      <span class="shot"><img src="/s1/laptop.png" alt="" width="1374" height="1145"></span>
+      <span class="click" aria-hidden="true">
+        <img class="c1" src="/s1/click-c1.svg" alt="" width="16" height="19">
+        <img class="l"  src="/s1/click-l.svg"  alt="" width="13" height="20">
+        <img class="i"  src="/s1/click-i.svg"  alt="" width="5"  height="20">
+        <img class="c2" src="/s1/click-c2.svg" alt="" width="19" height="21">
+        <img class="k"  src="/s1/click-k.svg"  alt="" width="19" height="24">
+      </span>
+    </a>
     <div id="s1name">   <!-- KIM YUJIN — 글자 영역 창. 시퀀스에서 이 창 아래로 사라짐 -->
       <img class="s1-k"  src="/s1/k.svg"  alt="K" width="249.138" height="370.86">
       <img class="s1-i"  src="/s1/i.svg"  alt="I" width="56.441"  height="370.817">
