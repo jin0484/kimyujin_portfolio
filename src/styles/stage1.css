@@ -1,3 +1,25 @@
-/* ══════════ STAGE 1 — 꽉 찬 작은 글씨 + 포인터 반응 ══════════
-   글자는 전부 canvas 로 그림 (src/stages/stage1.js). 크기·여백·자간은 data.js 의 TUNE */
+/* ══════════ STAGE 1 — 격자 지면 ══════════
+   격자는 canvas(#flowcv), 요소는 #s1els 안의 DOM. 셀 배치·글자 크기는 data.js 의 S1 */
 #flowcv { position: absolute; inset: 0; width: 100%; height: 100%; display: block }
+#s1els { position: absolute; inset: 0; overflow: hidden; color: var(--ink); font-family: var(--grot); pointer-events: none }
+#s1els .s1e, #s1els .s1ln { position: absolute; white-space: pre; box-sizing: border-box }
+#s1els .s1ln { display: none }
+
+/* 라벨 */
+.s1-head  { font-weight: 500; letter-spacing: -.02em; padding: .1em .35em }
+.s1-date  { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 400; padding: .1em .35em }
+.s1-addr  { color: var(--mut); padding: .3em .35em }
+.s1-count { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 500; letter-spacing: -.04em; padding: 0 .1em }
+.s1-logo  { text-align: right; font-weight: 700; letter-spacing: .02em; padding-right: .3em }
+
+/* 본문 줄 */
+.s1ln.s1-body, .s1ln.s1-big, .s1ln.s1-tiny { padding-left: .35em }
+.s1ln.s1-big  { font-weight: 500; letter-spacing: -.01em }
+.s1ln.s1-tiny { color: var(--mut) }
+
+/* 이미지 자리 — 검정 사각형 + 대각선 X */
+.s1-img {
+  background: var(--ink) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0L100 100M100 0L0 100' stroke='%23F3F3F3' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>") center / 100% 100% no-repeat;
+}
+/* 밑줄 — 셀 아래쪽에 굵은 선 하나 */
+.s1-rule { border-bottom: 2px solid var(--ink) }
