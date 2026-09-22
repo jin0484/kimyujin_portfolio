@@ -13,7 +13,7 @@
 /* 노트북 — 6단 (Figma: 1553 · 307×244). 기본은 N 위 20px, 시퀀스 중엔 프레임 값(bottom) 을 따라감 */
 #s1laptop {
   position: absolute; left: 1553px; width: 307px; height: 244px; overflow: hidden; display: block;
-  bottom: 314px; cursor: pointer;
+  bottom: 314px; cursor: pointer; z-index: 2;              /* 어느 프레임에서든 노트북 전체가 클릭 영역 */
 }
 #s1laptop .shot { position: absolute; inset: 0; overflow: hidden; transform: scaleX(-1) }   /* Figma 에서 좌우 반전됨 */
 #s1laptop .shot img { position: absolute; left: -12.74%; top: -13.91%; width: 123.73%; height: 129.19% }   /* Figma 크롭 그대로 */
@@ -42,7 +42,7 @@
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    스왑(YUJIN 크게) 배치와 퇴장은 stage1.js 의 NAME_A/NAME_B·FRAMES 가 인라인으로 */
-#s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; overflow: hidden }
+#s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; overflow: hidden; pointer-events: none }   /* 글자 영역이 노트북 클릭을 가리지 않게 */
 /* 창 기준 좌표 = Figma 좌표 − (61, 60) */
 .s1-k  { left: 0px;        bottom: 0.14px; width: 249.138px; height: 370.86px }
 .s1-i  { left: 301.024px;  bottom: 0.18px; width: 56.441px;  height: 370.817px }

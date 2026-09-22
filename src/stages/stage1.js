@@ -32,13 +32,14 @@ export function refresh() { sizing(); }
 const FRAMES = [
   { clip: [61, 585, null],  text: [61, 585],   align: "justify", name: 0,   year: 0,   laptop: 314,   swap: 0 },                      // 1 기본 — KIM 크게
   { clip: [61, 585, null],  text: [61, 585],   align: "justify", name: 0,   year: 0,   laptop: 453.6, swap: 1, stop: true, ms: 700 }, // 1' 스왑 — YUJIN 크게 (여기서 멈춤)
-  { clip: [61, 585, 340],   text: [61, 585],   align: "justify", name: 78,  year: 35,  laptop: 226,   swap: 1 },   // 2 문단이 짧아짐 (13줄)
-  { clip: [61, 887, 340],   text: [61, 887],   align: "left",    name: 165, year: 100, laptop: 156,   swap: 1 },   // 3 옆으로 길어지며 왼끝 맞춤으로
-  { clip: [61, 1189, 340],  text: [61, 1189],  align: "left",    name: 420, year: 100, laptop: 60,    swap: 1 },   // 4 4단 폭
-  { clip: [363, 1189, 340], text: [363, 1189], align: "left",    name: 420, year: 100, laptop: 60,    swap: 1 },   // 5 그대로 옆으로 이동
-  { clip: [670, 1189, 340], text: [670, 1189], align: "right",   name: 420, year: 100, laptop: 60,    swap: 1 },   // 6 오른쪽 끝에 닿으며 오른끝 맞춤으로
-  { clip: [971, 888, 340],  text: [693, 1189], align: "right",   name: 420, year: 100, laptop: 60,    swap: 1 },   // 7 창이 왼쪽부터 닫힘
-  { clip: [1273, 586, 340], text: [1273, 586], align: "right",   name: 420, year: 100, laptop: 60,    swap: 1 },   // 8 2단으로 좁아져 오른끝 맞춤으로 멈춤
+  { clip: [61, 585, null],  text: [61, 585],   align: "justify", name: 0,   year: 0,   laptop: 314,   swap: 0, stop: true, ms: 700 }, // 1'' 다시 KIM 크게 (여기서 멈춤)
+  { clip: [61, 585, 340],   text: [61, 585],   align: "justify", name: 78,  year: 35,  laptop: 226,   swap: 0 },   // 2 문단이 짧아짐 (13줄)
+  { clip: [61, 887, 340],   text: [61, 887],   align: "left",    name: 165, year: 100, laptop: 156,   swap: 0 },   // 3 옆으로 길어지며 왼끝 맞춤으로
+  { clip: [61, 1189, 340],  text: [61, 1189],  align: "left",    name: 420, year: 100, laptop: 60,    swap: 0 },   // 4 4단 폭
+  { clip: [363, 1189, 340], text: [363, 1189], align: "left",    name: 420, year: 100, laptop: 60,    swap: 0 },   // 5 그대로 옆으로 이동
+  { clip: [670, 1189, 340], text: [670, 1189], align: "right",   name: 420, year: 100, laptop: 60,    swap: 0 },   // 6 오른쪽 끝에 닿으며 오른끝 맞춤으로
+  { clip: [971, 888, 340],  text: [693, 1189], align: "right",   name: 420, year: 100, laptop: 60,    swap: 0 },   // 7 창이 왼쪽부터 닫힘
+  { clip: [1273, 586, 340], text: [1273, 586], align: "right",   name: 420, year: 100, laptop: 60,    swap: 0 },   // 8 2단으로 좁아져 오른끝 맞춤으로 멈춤
 ];
 // 글자 8개(k i m y u j i2 n)의 두 배치 — #s1name 창 기준 [left, bottom, width, height]. swap 0 = KIM 크게(Figma #1), 1 = YUJIN 크게(#2)
 const NAME_A = [[0, 0.14, 249.138, 370.86], [301.024, 0.18, 56.441, 370.817], [408.425, 0, 482.636, 378], [908, 0, 195, 234], [1152, 0, 187, 234], [1387.601, 0, 84.118, 233.997], [1521, 1, 34, 233], [1603.629, -0.4, 193.889, 234.404]];
