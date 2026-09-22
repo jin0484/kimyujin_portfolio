@@ -20,7 +20,7 @@ const REF = 100;                       // 큰 글씨 계측 기준 크기(px) �
 
 let W = 0, H = 0, dpr = 1, padX = 0, padY = 0, MAXS = 0;
 let fs = 0, lh = 0, smallFont = '';    // 작은 글씨 크기·행간·폰트
-let ink = '#0A0A0A', paper = '#FFFFFF';
+let ink = '#0A0A0A', paper = '#F3F3F3', main = '#C3DCA8', hair = '#D6D6D0';
 let cols = [];                         // 작은 글씨 단: { x0, x1, shift, gaps:Set }
 const bigCache = new Map(), smallCache = new Map();
 
@@ -66,6 +66,8 @@ export function sizing() {
   const cs = getComputedStyle(document.documentElement);
   ink = cs.getPropertyValue('--ink').trim() || ink;
   paper = cs.getPropertyValue('--paper').trim() || paper;
+  main = cs.getPropertyValue('--main').trim() || main;
+  hair = cs.getPropertyValue('--hair').trim() || hair;
 
   padX = W * TUNE.padX; padY = H * TUNE.padY;
   fs = cl(W * TUNE.smallSize[1], TUNE.smallSize[0], TUNE.smallSize[2]);
@@ -86,7 +88,15 @@ export function sizing() {
     const cw = avail * weights[c] / sum;
     const gaps = new Set();
     for (let r = 4; r < nrows; r++) if (hash(c, 100 + r) < TUNE.smallGapRate) gaps.add(r);   // 이 행 앞에 문단 여백
-    cols.push({ x0: x, x1: x + cw, shift: hash(c, 2) * lh, gaps });
+    // 격자용 행 경계 — 아래 render() 의 행 진행과 같은 규칙 (단마다 세로 오프셋·문단 여백 포함)
+    const ys = []; let y0 = padY + hash(c, 2) * lh;
+    for (let r = 0; ; r++, y0 += lh) {
+      if (gaps.has(r)) { if (ys.length) ys.push(y0); y0 += lh * TUNE.smallParaGap; }   // 문단 여백 앞뒤로 선
+      if (y0 + lh > H - padY * 0.5) break;
+      ys.push(y0);
+    }
+    if (ys.length) ys.push(ys[ys.length - 1] + lh);
+    cols.push({ x0: x, x1: x + cw, shift: hash(c, 2) * lh, gaps, ys });
     x += cw + gap;
   }
 }
@@ -130,7 +140,7 @@ function tick(now) {
 }
 
 /* ── 조판: 큰 글씨 위치 + 작은 글씨 조각(runs) 계산. 큰 글씨가 바뀔 때만 호출 ── */
-let bigDraw = [];   // 그릴 큰 글자 { ch, x, y, size }
+let bigDraw = [];   // 그릴 큰 글자 { ch, x, y, size, hot }  hot = 방금 찍힌 글자 (포인트 컬러)
 let runs = [];      // 작은 글씨 조각 { x, cy, text }
 export function render() {
   bigDraw = []; runs = [];
@@ -145,7 +155,7 @@ export function render() {
     const ox = g.x - (m.r - m.l) * sc / 2 , base = g.y + (m.asc - m.desc) * sc / 2;
     mctx.font = '900 ' + g.cur + 'px ' + FAMILY;
     mctx.fillText(g.ch, ox, base);
-    bigDraw.push({ ch: g.ch, x: ox, y: base, size: g.cur });
+    bigDraw.push({ ch: g.ch, x: ox, y: base, size: g.cur, hot: g === live[live.length - 1] });
     boxes.push({ x0: ox - m.l * sc, x1: ox + m.r * sc, y0: base - m.asc * sc, y1: base + m.desc * sc });
   }
   const md = boxes.length ? mctx.getImageData(0, 0, mw, mh).data : null;
@@ -205,8 +215,23 @@ export function render() {
 /* ── 그리기: 큰 글씨 + 작은 글씨 조각 ── */
 function draw() {
   ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
+  // 격자 — 작은 글씨가 갇힌 단·행 틀. 큰 글씨는 이 틀을 무시하고 위에 얹힘
+  if (TUNE.gridAlpha > 0) {
+    ctx.save(); ctx.globalAlpha = TUNE.gridAlpha; ctx.strokeStyle = hair; ctx.lineWidth = TUNE.gridWidth;
+    ctx.beginPath();
+    for (const c of cols) {
+      if (!c.ys.length) continue;
+      const x0 = Math.round(c.x0) + 0.5, x1 = Math.round(c.x1) + 0.5, top = c.ys[0], bot = c.ys[c.ys.length - 1];
+      ctx.moveTo(x0, top); ctx.lineTo(x0, bot); ctx.moveTo(x1, top); ctx.lineTo(x1, bot);
+      for (const y of c.ys) { const yy = Math.round(y) + 0.5; ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); }
+    }
+    ctx.stroke(); ctx.restore();
+  }
   ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
-  for (const g of bigDraw) { ctx.font = '900 ' + g.size + 'px ' + FAMILY; ctx.fillText(g.ch, g.x, g.y); }
+  for (const g of bigDraw) {
+    ctx.fillStyle = g.hot ? main : ink;                         // 한 화면에 컬러 하나: 마지막 글자만
+    ctx.font = '900 ' + g.size + 'px ' + FAMILY; ctx.fillText(g.ch, g.x, g.y);
+  }
   ctx.font = smallFont; ctx.textBaseline = 'middle'; ctx.fillStyle = ink;
   for (const r of runs) ctx.fillText(r.text, r.x, r.cy);
 }

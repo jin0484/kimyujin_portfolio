@@ -1,11 +1,12 @@
 /* ═══════════ STAGE 3 — 먼지 파티클 + 타이핑 ═══════════ */
 import { SLOGAN, T, TUNE } from '../data.js';
-import { getLayout } from './stage2.js';
+import { getLayout, drawGrid } from './stage2.js';
 import { $, cl, smooth } from '../utils.js';
 import { state } from '../state.js';
 
 const cvs = $('#dust'), ctx = cvs.getContext('2d');
 let parts = null, dpr = 1, builtWith = -1;
+let gridA = 0;    // 격자 농도 — 화면 2 가 사라지며 넘겨받고(1), 타이핑 진행에 따라 0 으로
 
 // 화면 2의 조판 결과(getLayout)를 그대로 오프스크린 캔버스에 그림 → 픽셀 샘플링용.
 // 같은 좌표·같은 글자라 DOM 텍스트와 파티클이 일치하고, 파낸 원 자리는 애초에 글자가 없다.
@@ -60,9 +61,12 @@ export function sizeCanvas() {
 }
 
 function drawDust(q) {
-  if (!parts) return;
   const w = cvs.width, h = cvs.height;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, w, h);
+  // 격자 — 글자는 날아가도 틀은 남는다. 마지막 문장이 적히며 함께 비워짐
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawGrid(ctx, gridA); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (!parts) return;
   const S = Math.max(cvs.clientWidth, cvs.clientHeight) * TUNE.dustTravel;
   const disp = Math.pow(q, 1.5) * S;
   const buckets = [[], [], [], [], []];
@@ -141,6 +145,8 @@ export function updateStage3(p, o3) {
   // 화면 2 끝나기 직전에 파티클 생성. 구멍 수가 바뀌었으면 다시 생성
   if (p > T.s2End - 0.06 && (!parts || builtWith !== state.punched)) buildParts();
   qTarget = cl((p - T.dissolve) / (T.dissolveEnd - T.dissolve), 0, 1);
+  // 격자: 화면 2 가 페이드아웃되는 구간에 맞춰 이어받고, 타이핑 구간(T.typing→1) 동안 사라짐
+  gridA = cl((p - T.s2End) / (T.dissolve - T.s2End + 0.03), 0, 1) * (1 - cl((p - T.typing) / (1 - T.typing), 0, 1));
   const now = performance.now();
   setStep(p, now);
   if (o3 > 0.01) wake();

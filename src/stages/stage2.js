@@ -12,6 +12,7 @@ import { openProject, isModalOpen } from '../modal.js';
 import { setNudge } from '../chrome.js';
 
 const s2 = $('#s2'), colsEl = $('#s2cols'), holesEl = $('#holes');
+const gridCv = $('#s2grid'), gridCtx = gridCv.getContext('2d');
 const FAMILY = '"Archivo","Gothic A1",sans-serif';
 let holeNodes = [];
 
@@ -26,8 +27,43 @@ function cw(ch) {
 }
 
 /* ── 조판 결과 (화면 3도 이걸 씀) ── */
-const L = { W: 0, H: 0, fs: 0, lh: 0, font: '', nrows: 0, segs: [] };   // segs: { x, y, w, text, sp }
+const L = { W: 0, H: 0, fs: 0, lh: 0, font: '', nrows: 0, segs: [],   // segs: { x, y, w, text, sp }
+            padX: 0, padY: 0, ncol: 0, colW: 0, gap: 0 };              // 단 격자 (drawGrid 용)
 export function getLayout() { return L; }
+
+/* ── 격자 — 단 경계 세로선 + 행 가로선. 화면 2 자체 캔버스와 화면 3 먼지 캔버스가 같이 씀 ──
+ *  ctx 는 이미 dpr 로 setTransform 된 상태여야 함. alpha 0 이면 아무것도 안 그림 */
+let hair = '#D6D6D0';
+export function drawGrid(ctx, alpha) {
+  const a = alpha * TUNE.gridAlpha;
+  if (a <= 0.005 || !L.ncol) return;
+  const y0 = L.padY, y1 = L.padY + L.nrows * L.lh;
+  ctx.save();
+  ctx.globalAlpha = a; ctx.strokeStyle = hair; ctx.lineWidth = TUNE.gridWidth;
+  ctx.beginPath();
+  for (let c = 0; c < L.ncol; c++) {                            // 단마다 좌·우 경계
+    const x0 = Math.round(L.padX + c * (L.colW + L.gap)) + 0.5, x1 = Math.round(x0 + L.colW) + 0.5;
+    ctx.moveTo(x0, y0); ctx.lineTo(x0, y1);
+    ctx.moveTo(x1, y0); ctx.lineTo(x1, y1);
+  }
+  for (let r = 0; r <= L.nrows; r++) {                          // 행 경계 (단 안쪽만)
+    const y = Math.round(L.padY + r * L.lh) + 0.5;
+    for (let c = 0; c < L.ncol; c++) {
+      const x0 = L.padX + c * (L.colW + L.gap);
+      ctx.moveTo(x0, y); ctx.lineTo(x0 + L.colW, y);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+function paintGrid() {
+  hair = getComputedStyle(document.documentElement).getPropertyValue('--hair').trim() || hair;
+  const dpr = Math.min(window.devicePixelRatio || 1, TUNE.dprCap);
+  gridCv.width = Math.floor(L.W * dpr); gridCv.height = Math.floor(L.H * dpr);
+  gridCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gridCtx.clearRect(0, 0, L.W, L.H);
+  drawGrid(gridCtx, 1);
+}
 
 // 행 [y0,y1] 과 원의 교차 → 막힌 가로 구간 (원과 띠의 현 + 여백)
 function circleBlock(c, y0, y1, pad) {
@@ -94,7 +130,9 @@ export function layoutText() {
       }
     }
   }
-  Object.assign(L, { W, H, fs, lh, font, nrows, segs });
+  const gridChanged = L.W !== W || L.H !== H || L.lh !== lh || L.ncol !== ncol;
+  Object.assign(L, { W, H, fs, lh, font, nrows, segs, padX, padY, ncol, colW, gap });
+  if (gridChanged) paintGrid();                                // 격자는 크기 바뀔 때만 다시 그림 (구멍 팔 때마다 X)
   renderDom();
 }
 
