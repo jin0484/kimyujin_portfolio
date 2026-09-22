@@ -1,4 +1,5 @@
 /* 디자인 토큰 — 색 · 폰트 */
+@font-face { font-family: 'Dotline'; src: url(/fonts/dotline.ttf) format('truetype'); font-display: swap }   /* 엘점선체 */
 :root {
   color-scheme: light;
   --paper: #FFFFFF;
@@ -8,4 +9,5 @@
   --main:  #C3DCA8;  /* 메인 컬러 */
   --grot:  'Archivo', 'Gothic A1', sans-serif;
   --serif: 'Gowun Batang', serif;
+  --dot:   'Dotline', sans-serif;   /* 엘점선체 — 화면 3 '비어 있는 게 아니라' */
 }

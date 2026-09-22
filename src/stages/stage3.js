@@ -85,27 +85,55 @@ function drawDust(q) {
   }
 }
 
-/* 타이핑 — 위로 스크롤하면 리셋 */
-const typed = $('#typed');
-let typeStart = null, typeOn = false;
-function typing(p) {
-  const go = p > T.typing;
-  if (go && !typeOn) { typeOn = true; typeStart = performance.now(); }
-  if (!go && typeOn) { typeOn = false; typed.textContent = ''; }
-  if (typeOn) {
-    const n = Math.floor((performance.now() - typeStart) / TUNE.typeSpeed);
-    typed.textContent = SLOGAN.slice(0, Math.min(n, SLOGAN.length));
+/* 타이핑 — 스크롤 단계(T.typing 부터 T.typeStep 간격)마다 한 동작씩.
+ *  0: a 타이핑  1: b 타이핑(다른 폰트)  2: b 지우기  3: c 타이핑
+ *  내려갈 땐 지금 단계 동작이 다 끝나야 다음 단계로 넘어감 (휠을 빨리 내려도 건너뛰지 않음).
+ *  올라갈 땐 바로 그 단계로 가서 이전 단계들의 최종 상태를 놓고 해당 동작만 다시 재생 */
+const t1 = $('#t1'), t2 = $('#t2'), t3 = $('#t3'), t4 = $('#t4');
+let step = -1, want = -1, stepStart = 0;
+function enter(s, now) {
+  step = s; stepStart = now;
+  t1.textContent = s >= 1 ? SLOGAN.a : '';
+  t2.textContent = s === 2 ? SLOGAN.b : '';
+  t3.textContent = t4.textContent = '';
+}
+function setStep(p, now) {
+  want = p < T.typing ? -1 : Math.min(3, Math.floor((p - T.typing) / T.typeStep));
+  if (want < step) enter(want, now);                       // 위로: 즉시
+}
+// 현재 단계의 동작을 시간에 맞춰 진행. 아직 할 일이 남아 있으면 true
+function typing(now) {
+  if (step < 0) { t1.textContent = t2.textContent = t3.textContent = t4.textContent = ''; }
+  let busy = false;
+  const n = Math.floor((now - stepStart) / TUNE.typeSpeed);
+  if (step === 0) { t1.textContent = SLOGAN.a.slice(0, n); busy = n < SLOGAN.a.length; }
+  else if (step === 1) { t2.textContent = SLOGAN.b.slice(0, n); busy = n < SLOGAN.b.length; }
+  else if (step === 2) {
+    const k = Math.floor((now - stepStart - TUNE.holdBeforeErase) / TUNE.eraseSpeed);   // hold 동안은 k<0 → 그대로
+    t2.textContent = SLOGAN.b.slice(0, Math.max(0, SLOGAN.b.length - k)); busy = k < SLOGAN.b.length;
   }
+  else if (step === 3) {                                   // c(볼드) 다 치고 이어서 d
+    t3.textContent = SLOGAN.c.slice(0, n); t4.textContent = SLOGAN.d.slice(0, Math.max(0, n - SLOGAN.c.length));
+    busy = n < SLOGAN.c.length + SLOGAN.d.length;
+  }
+  if (!busy && want > step) { enter(step + 1, now); return true; }   // 아래로: 끝난 뒤에만 한 단계씩
+  return busy;
 }
 
-/* 먼지 진행도는 스크롤을 바로 따르지 않고 시간으로 부드럽게 따라감 (휠을 휙 돌려도 천천히 흩어짐) */
+/* 먼지 진행도는 스크롤을 바로 따르지 않고 시간으로 부드럽게 따라감 (휠을 휙 돌려도 천천히 흩어짐)
+ * 같은 루프에서 타이핑도 진행 — 먼지가 멈추고 타이핑도 끝나면 루프 정지 */
 let qTarget = 0, qCur = 0, loopOn = false, lastT = 0;
 function loop(now) {
   const dt = Math.min(64, now - lastT); lastT = now;
   qCur += (qTarget - qCur) * (1 - Math.exp(-dt / TUNE.dustSmoothMs));
-  if (Math.abs(qTarget - qCur) < 0.0005) { qCur = qTarget; loopOn = false; }
+  if (Math.abs(qTarget - qCur) < 0.0005) qCur = qTarget;
   drawDust(qCur);
+  const busy = typing(now);
+  loopOn = qCur !== qTarget || busy;
   if (loopOn) requestAnimationFrame(loop);
+}
+function wake() {
+  if (!loopOn) { loopOn = true; lastT = performance.now(); requestAnimationFrame(loop); }
 }
 
 // 매 프레임 호출. p = 전체 진행도, o3 = 화면 3 불투명도
@@ -113,10 +141,10 @@ export function updateStage3(p, o3) {
   // 화면 2 끝나기 직전에 파티클 생성. 구멍 수가 바뀌었으면 다시 생성
   if (p > T.s2End - 0.06 && (!parts || builtWith !== state.punched)) buildParts();
   qTarget = cl((p - T.dissolve) / (T.dissolveEnd - T.dissolve), 0, 1);
-  if (o3 > 0.01) {
-    if (!loopOn) { loopOn = true; lastT = performance.now(); requestAnimationFrame(loop); }
-  } else { qCur = qTarget; }                                   // 화면 3이 안 보일 땐 바로 맞춤
-  typing(p);
+  const now = performance.now();
+  setStep(p, now);
+  if (o3 > 0.01) wake();
+  else { qCur = qTarget; typing(now); }                        // 화면 3이 안 보일 땐 바로 맞춤
 }
 
 export function initStage3() {

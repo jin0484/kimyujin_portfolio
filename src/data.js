@@ -40,8 +40,13 @@ export const SHAPES = {
   ring:   '<circle cx="34" cy="34" r="25" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="34" cy="34" r="7" fill="currentColor"/>',
 };
 
-/* ══════════ 화면 3 — 마지막 한 문장 ══════════ */
-export const SLOGAN = 'Keeping It Simple';
+/* ══════════ 화면 3 — 마지막 한 문장 (휠 한 단계마다 한 동작) ══════════ */
+export const SLOGAN = {
+  a: '여백은',                     // 1. 타이핑
+  b: ' 비어 있는 게 아니라',        // 2. 다른 폰트로 타이핑 → 3. 지워짐
+  c: ' 아직 정해지지 않은 자리',     // 4. 타이핑 (볼드)
+  d: '다',                        //    이어서 타이핑 (일반 두께)
+};
 
 /* ══════════ 스크롤 구간 (진행도 0~1) ══════════ */
 export const SCROLL_HEIGHT = '820vh';   // 전체 스크롤 높이 (#scroller, main.js 에서 적용)
@@ -52,6 +57,7 @@ export const T = {
   dissolve:    0.70,   // 먼지 확산 시작
   dissolveEnd: 0.93,   // 먼지 확산 끝
   typing:      0.885,  // 타이핑 시작
+  typeStep:    0.028,  // 타이핑 단계 간격 (진행도) — 작을수록 휠 조금만 내려도 다음 동작
 };
 
 /* ══════════ 튜닝 수치 ══════════ */
@@ -97,7 +103,9 @@ export const TUNE = {
   dustTravel:   1.15,   // 입자가 날아가는 거리 (화면 긴 쪽 배수)
   dustSmoothMs: 700,    // 스크롤을 따라가는 관성 (클수록 더 천천히·부드럽게)
   dprCap:       1.5,    // devicePixelRatio 상한
-  typeSpeed:    62,     // 타이핑 ms/글자
+  typeSpeed:    124,    // 타이핑 ms/글자
+  eraseSpeed:   72,     // 지우기 ms/글자
+  holdBeforeErase: 1500, // '비어 있는 게 아니라' 다 적힌 뒤 지우기 전까지 머무는 시간 ms
 };
 
 /* ══════════ UI 문구 ══════════ */
