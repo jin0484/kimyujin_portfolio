@@ -100,8 +100,8 @@ function bezier(x1, y1, x2, y2) {
   const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t;
   return (x) => { let t = x; for (let i = 0; i < 8; i++) { const e = X(t) - x; if (Math.abs(e) < 1e-5) break; t -= e / ((3 * ax * t + 2 * bx) * t + cx || 1e-6); } return Y(Math.min(1, Math.max(0, t))); };
 }
-function easeFn() {
-  const m = /cubic-bezier\(([^)]+)\)/.exec(getComputedStyle(stage).getPropertyValue("--s1stepEase"));
+function easeFn(name) {
+  const m = /cubic-bezier\(([^)]+)\)/.exec(getComputedStyle(stage).getPropertyValue(name));
   return m ? bezier(...m[1].split(",").map(Number)) : bezier(0.5, 0, 0.5, 1);
 }
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -220,13 +220,17 @@ function measureFill() {                                      // 상자를 꽉 �
   nSeq = tsA.fitCount(BODY[0][1], H_SEQ);                        // 시퀀스: 479px(18줄), Figma 그대로
 }
 
-let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, lockUntil = 0, wrapFade = 0.35;   // pos: 프레임 단위 위치 0 ~ n
+let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, bodyEase = null, lockUntil = 0, wrapFade = 0.35;   // pos: 프레임 단위 위치 0 ~ n
 const N = FRAMES.length - 1;
 const STOPS = [0, ...FRAMES.map((f, i) => (f.stop ? i : -1)).filter((i) => i > 0), N];   // 정지점들 (양 끝 포함)
 
-function renderBody(q) {                                      // 본문만 — FRAMES 의 BODY_FROM~BODY_TO 구간에 BODY 26프레임을 편다
+// 본문만 — FRAMES 의 BODY_FROM~BODY_TO 구간에 BODY 26프레임을 편다.
+// p 는 이징 **전** 위치다: 본문은 --s1bodyEase 로 따로 이징한다(양끝 더 느리게, 가운데 더 빠르게).
+// KIM YUJIN·2026 PORTFOLIO·노트북은 --s1stepEase 를 그대로 쓰므로 서로 영향이 없다.
+function renderBody(p) {
   if (!tsA) return;
-  const u = Math.min(1, Math.max(0, (q - BODY_FROM) / (BODY_TO - BODY_FROM))) * (BODY.length - 1);
+  const u01 = Math.min(1, Math.max(0, (p - BODY_FROM) / (BODY_TO - BODY_FROM)));
+  const u = (bodyEase ? bodyEase(u01) : u01) * (BODY.length - 1);
   const i = Math.min(BODY.length - 2, Math.floor(u)), t = u - i;
   const A = BODY[i], B = BODY[i + 1];
   const x = lerp(A[0], B[0], t), w = lerp(A[1], B[1], t);
@@ -241,11 +245,10 @@ function renderBody(q) {                                      // 본문만 — F
   tsA.show(w, lastAlign, nVis,      A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
   tsB.show(w, lastAlign, tsB.count, A[1], B[1], ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
-function render(q) {                                        // q: 이징 적용된 위치(프레임 단위) → 프레임 사이 보간
+function render(q) {                                        // q: --s1stepEase 가 적용된 위치(프레임 단위) → 프레임 사이 보간. 본문은 renderBody 가 따로 그린다
   q = Math.min(N, Math.max(0, q));
   const i = Math.min(N - 1, Math.floor(q)), t = q - i;
   const A = FRAMES[i], B = FRAMES[i + 1];
-  renderBody(q);
   year.style.transform = "translateY(" + (-lerp(A.year, B.year, t)) + "px)";
   laptop.style.bottom = lerp(A.laptop, B.laptop, t) + "px";
   const sw = lerp(A.swap, B.swap, t), ny = lerp(A.name, B.name, t);
@@ -279,7 +282,8 @@ function tick(now) {
   // 정지점: 진행 방향으로 처음 만나는 정지점을 넘으면 거기서 멈춤
   const stop = dir > 0 ? STOPS.find((st) => st > before && st <= pos) : [...STOPS].reverse().find((st) => st < before && st >= pos);
   if (stop !== undefined) { pos = stop; dir = 0; lockUntil = now + 400; }   // 같은 휠 동작이 정지점을 뚫지 않게 잠깐 잠금
-  render(eased(pos));
+  render(eased(pos));                                                 // 글자·라벨·노트북 (--s1stepEase)
+  renderBody(pos);                                                    // 본문 (이징 전 위치 — 안에서 --s1bodyEase 를 건다)
   if (dir === 0 && pos === 0) clear();
   raf = dir ? requestAnimationFrame(tick) : 0;
 }
@@ -290,7 +294,8 @@ function play(d) {
   buildBody();
   if (atStart()) {                                          // 출발할 때 한 번 잼
     measureFill();
-    ease = easeFn();
+    ease = easeFn('--s1stepEase');                          // 글자·라벨·노트북
+    bodyEase = easeFn('--s1bodyEase');                      // 초록 본문 — 양끝 더 느리게, 가운데 더 빠르게
     const f = parseFloat(getComputedStyle(stage).getPropertyValue('--s1wrap'));   // 구간 중 줄 구조를 갈아끼우는 비율
     wrapFade = Math.min(0.9, Math.max(0.05, isNaN(f) ? 0.35 : f));
   }
