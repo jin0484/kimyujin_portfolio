@@ -22,15 +22,15 @@
 }
 #s1box.on { display: block }
 #s1box.grab { cursor: grabbing }
-/* DRAG ↗ — Figma 144:891: 박스 오른쪽 위 안쪽 20px, Chillax Medium 32/26, 화살표 20. 잡으면 사라지고, 놓아서 제자리로 돌아오거나 박스가 다시 나오면 다시 보임 */
+/* DRAG ↗ — Figma 144:891: 박스 오른쪽 위 안쪽 20px, Chillax Medium 32/26, 화살표 20. 사진 위라 흰색(Figma 는 검정) — 밝은 사진은 data.js BOX_SHOTS 의 ink 로. 잡으면 사라지고, 놓아서 제자리로 돌아오거나 박스가 다시 나오면 다시 보임 */
 #s1drag {
   position: absolute; top: 20px; right: 20px; z-index: 1; display: flex; align-items: center; gap: 10px; pointer-events: none;
-  font-family: 'Chillax', var(--grot); font-weight: 500; font-size: 32px; line-height: 26px; letter-spacing: -0.64px; color: #000; white-space: nowrap;
+  font-family: 'Chillax', var(--grot); font-weight: 500; font-size: 32px; line-height: 26px; letter-spacing: -0.64px; color: #fff; white-space: nowrap;
   transition: opacity .2s;
 }
-#s1drag svg { width: 21.0607px; height: 21.0607px; margin: 0 0 -1.06px -1.06px; fill: none; stroke: #000; stroke-width: 3 }   /* Figma 화살표 20×20 (선 두께만큼 왼쪽·아래로 삐져나옴) */
+#s1drag svg { width: 21.0607px; height: 21.0607px; margin: 0 0 -1.06px -1.06px; fill: none; stroke: currentColor; stroke-width: 3 }   /* Figma 화살표 20×20 (선 두께만큼 왼쪽·아래로 삐져나옴) */
 #s1drag.gone { opacity: 0 }
-#s1box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none }   /* 나중에 넣을 사진 — 박스 크기가 바뀌어도 꽉 채움 */
+#s1box img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; user-select: none; filter: grayscale(var(--s1shotGray, 1)) }   /* 프로젝트 사진(data.js BOX_SHOTS 중 랜덤) — 흑백(--s1shotGray: 1 = 완전 흑백, 0 = 원래 색). 크기·자리는 box.js placeShot: 격자 비율로 눌러 박스를 꽉 채우고, 끝까지 키우면 격자에 딱 맞음 */
 #s1yearclip { position: absolute; left: 1574px; top: 60px; width: 286px; height: 25px; overflow: hidden }   /* 2026 PORTFOLIO — 격자 윗선(60)에 맞춘 창 */
 #s1year { left: 0; top: 0; width: 286px; height: 25px }
 

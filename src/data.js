@@ -14,3 +14,14 @@ export const DUMMY =
  *  띄어쓰기가 없어서 글자 단위로 줄이 나뉜다(여백 본문은 단어 단위). 실제 글로 바꾸면 띄어쓰기 여부에 따라
  *  stage1.js 의 typeset(DUMMY2, ...) 두 번째 인자를 'word' 로 바꿔야 한다. ══════════ */
 export const DUMMY2 = '여기서부턴다른글로바뀝니다.'.repeat(39);
+
+/* ══════════ 화면 1 네모박스 사진 — 프로젝트 스포. 페이지를 열거나 새로고침할 때마다 이 중 하나를 랜덤으로 (box.js) ══════════
+ *  사진 추가: public/projects/ 에 1800×960(격자 크기와 같게) JPG 로 넣고 한 줄 더 쓰면 끝 (Figma "사진 랜덤" 147:938).
+ *  pos: 박스가 작을 때(284×236) 잘려도 남길 중심점 ("가로% 세로%"). 박스를 끝까지 키우면 사진 전체가 격자에 딱 맞는다.
+ *  ink: DRAG ↗ 글자색 — 없으면 흰색. 사진 오른쪽 위가 밝으면 어둡게. */
+export const BOX_SHOTS = [
+  { src: '/projects/story.jpg',        pos: '50% 70%' },   // Story — 일상의 오
+  { src: '/projects/neodaum.jpg',      pos: '45% 50%', ink: '#0c0c0c' },   // Brand Design — Neodaum (Figma 4)
+  { src: '/projects/blink.jpg',        pos: '55% 60%' },   // 블링크
+  { src: '/projects/kooksoondang.jpg', pos: '80% 50%', ink: '#0c0c0c' },   // KOOKSOONDANG (Figma 6)
+];

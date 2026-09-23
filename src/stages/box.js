@@ -13,6 +13,7 @@
  * 좌표는 Figma 격자(1800 × 960) 기준. 세로는 무대 높이에 맞춰 늘어나므로 그릴 때 sy 를 곱한다.
  */
 import { $, bezier } from '../utils.js';
+import { BOX_SHOTS } from '../data.js';
 
 const stage = $('#s1stage'), grid = $('#s1grid'), box = $('#s1box'), laptop = $('#s1laptop');
 const vg = [...grid.querySelectorAll('.v')], hr = [...grid.querySelectorAll('.h')], bd = grid.querySelector('.bd');
@@ -81,17 +82,28 @@ function paint(d) {
   squeeze(d[8], d[9]);
 }
 
+// 사진 — 격자(1800 × 960·sy) 비율로 눌러 둔 채 박스를 꽉 채움(cover). 박스를 끝까지 키우면 사진이 격자에 딱 맞는다.
+// 화면 세로가 짧으면(sy < 1) 사진이 그만큼 세로로 눌리고, 박스가 작을 땐 pos(중심점) 기준으로 잘린다
+let shotEl = null, shotPos = [0.5, 0.5];
+function placeShot(bw, bh) {
+  if (!shotEl) return;
+  const Wv = GW, Hv = GH * sy, k = Math.max(bw / Wv, bh / Hv), iw = Wv * k, ih = Hv * k;
+  shotEl.style.width = iw + 'px'; shotEl.style.height = ih + 'px';
+  shotEl.style.left = (bw - iw) * shotPos[0] + 'px'; shotEl.style.top = (bh - ih) * shotPos[1] + 'px';
+}
+
 function render() {
   const a = ease ? ease(u) : u;
   if (a < 1) {                                               // 등장 중: 0 → 50×50 → 기본 칸. 선·글·노트북은 그대로
     const e = a * 2;
     const bw = e <= 1 ? POP * e : lerp(POP, W0, e - 1), bh = e <= 1 ? POP * e : lerp(POP, (GH - T0) * sy, e - 1);
-    box.style.width = bw + 'px'; box.style.height = bh + 'px';
+    box.style.width = bw + 'px'; box.style.height = bh + 'px'; placeShot(bw, bh);
     paintGrid(derive(W0, T0));
     return;
   }
   box.style.width = w + 'px';
   box.style.height = (GH - t) * sy + 'px';
+  placeShot(w, (GH - t) * sy);
   // 놓은 뒤엔 오른쪽 요소들도 박스와 같은 스프링으로 — 놓던 순간의 모습에서 원래 모습으로, 똑같이 살짝 넘쳤다 복귀
   if (spring) { const R = derive(W0, T0); paint(R.map((r, i) => r + (spring.d0[i] - r) * spring.f)); }
   else paint(derive(w, t));
@@ -158,6 +170,20 @@ export function boxSizing(stageH, s) {                       // stage1.js sizing
 
 export function initBox(squeezeBody) {
   squeeze = squeezeBody;
+  // 프로젝트 사진 하나를 랜덤으로 — 페이지 열 때(새로고침 포함)만 뽑고, 박스를 넣었다 꺼내도 그대로. 박스가 나오기 전에 미리 받아둠
+  // 직전에 나온 사진은 빼고 뽑는다 (브라우저에 마지막 사진만 기억 — 저장이 막힌 환경이면 그냥 랜덤)
+  if (BOX_SHOTS.length) {
+    let last = null;
+    try { last = localStorage.getItem('s1lastShot'); } catch (e) {}
+    const pool = BOX_SHOTS.length > 1 ? BOX_SHOTS.filter((s) => s.src !== last) : BOX_SHOTS;
+    const shot = pool[Math.floor(Math.random() * pool.length)];
+    try { localStorage.setItem('s1lastShot', shot.src); } catch (e) {}
+    const img = new Image();
+    img.src = shot.src; img.alt = ''; img.draggable = false; img.decoding = 'async';
+    shotPos = (shot.pos || '50% 50%').split(/\s+/).map((v) => parseFloat(v) / 100);
+    box.prepend(img); shotEl = img;
+    if (shot.ink) $('#s1drag').style.color = shot.ink;          // 밝은 사진은 DRAG ↗ 를 어둡게
+  }
   box.addEventListener('pointerdown', (e) => {
     if (!shown || uTo !== 1 || u < 1 || e.button !== 0) return;
     e.preventDefault();
