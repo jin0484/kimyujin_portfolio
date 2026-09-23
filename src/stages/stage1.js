@@ -6,7 +6,9 @@
  * 좌표·크기는 Figma 값 그대로 (src/styles/stage1.css). 본문 글은 data.js 의 DUMMY · DUMMY2.
  * 본문: 처음 들어올 때 위에서 아래로 한 줄씩 드러남 (clip-path 를 줄 수만큼의 steps 로 내림).
  * 휠: 첫 휠에 퇴장 시퀀스, 두 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄),
- *     세 번째 휠에 박스·오른쪽 위 초록 글이 작아지며 사라짐(box.js clearBox, Figma 152:1046). (Figma "휠 이벤트 정리 표" 135:800)
+ *     세 번째 휠에 박스·오른쪽 위 초록 글이 작아지며 사라짐(box.js clearBox, Figma 152:1046),
+ *     네 번째 휠에 격자 가로줄이 새 줄로 갈아끼워짐(box.js morphGrid, Figma 167:2190), 다섯 번째 휠에 ABOUT ME(about.js, Figma 167:2388).
+ *     (Figma "휠 이벤트 정리 표" 135:800)
  *     KIM↔YUJIN 스왑 정지점 두 개는 2026-09-23 삭제 — 필요하면 커밋 c2ebafb 의 FRAMES·NAME_B 참고
  *
  * 트랙이 둘 — 둘 다 같은 위치(pos)를 보지만 표는 따로다:
@@ -17,7 +19,8 @@
 import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
-import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared } from './box.js';
+import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed } from './box.js';
+import { aboutSizing, showAbout, hideAbout, aboutShown } from './about.js';
 
 const stage = $('#s1stage'), body = $('#s1body'), bodyClip = $('#s1bodyclip'),
       year = $('#s1year'), laptop = $('#s1laptop'), letters = [...stage.querySelectorAll('#s1name img')];
@@ -28,6 +31,7 @@ export function sizing() {
   stage.style.height = (window.innerHeight / s) + 'px';
   stage.style.transform = 'scale(' + s + ')';
   boxSizing(window.innerHeight / s, s);                       // 격자 선 · 네모박스 (box.js)
+  aboutSizing(window.innerHeight / s);                        // ABOUT ME (about.js)
 }
 
 export function refresh() {                                   // 리사이즈 · 폰트 로드 후 (main.js)
@@ -454,9 +458,10 @@ function tick(now) {
 const atStart = () => pos === 0 && dir === 0;
 function play(d) {
   if (dir === 0 && performance.now() < lockUntil) return;
-  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 (box.js) — 2번째 휠 네모박스 등장, 3번째 휠 박스·초록 글 사라짐. 올리면 한 단계씩 되돌아가고, 그다음 휠에 퇴장이 되감김
-    const ms = d > 0 ? (!boxShown() ? showBox() : clearBox())
-                     : (boxCleared() ? unclearBox() : hideBox());
+  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js).
+                                                             // 휠을 올리면 한 단계씩 되돌아가고, 다 되돌아간 뒤 그다음 휠에 퇴장이 되감김
+    const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : !gridMorphed() ? morphGrid() : showAbout())
+                     : (aboutShown() ? hideAbout() : gridMorphed() ? unmorphGrid() : boxCleared() ? unclearBox() : hideBox());
     if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
     return;
   }

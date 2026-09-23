@@ -8,4 +8,6 @@
   --hair:  #D6D6D0;
   --main:  #C3DCA8;  /* 메인 컬러 */
   --grot:  'Archivo', 'Gothic A1', sans-serif;
+  /* 격자 여백 — 1920 기준 60px = 3.125vw. **격자 바깥은 아무것도 안 보인다** (화면마다 이 자리에서 잘라냄) */
+  --pad: 3.125vw;
 }

@@ -1,5 +1,5 @@
 /* ══════════ WORK 페이지 (work.html) — Figma "Work #1": 격자만 (임시) ══════════
    화면 1 과 같은 규칙: 1920 기준 60px 여백 = 3.125vw, 세로는 뷰포트에 맞춰 격자가 늘어남 */
 body { background: #232323 }
-#work { position: fixed; inset: 0; background: #232323 }   /* 격자는 public/work/grid.svg (화면 1 격자와 같은 모양, 선 색만 #333333) */
+#work { position: fixed; inset: 0; background: #232323; clip-path: inset(var(--pad)) }   /* 화면 1 과 같은 규칙 — 격자 바깥은 잘라냄 */   /* 격자는 public/work/grid.svg (화면 1 격자와 같은 모양, 선 색만 #333333) */
 #workgrid { position: absolute; left: 3.125vw; top: 3.125vw; width: calc(100% - 6.25vw); height: calc(100% - 6.25vw); display: block }

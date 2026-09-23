@@ -19,11 +19,14 @@ import { $, bezier } from '../utils.js';
 import { BOX_SHOTS } from '../data.js';
 
 const stage = $('#s1stage'), grid = $('#s1grid'), box = $('#s1box'), laptop = $('#s1laptop');
-const vg = [...grid.querySelectorAll('.v')], hr = [...grid.querySelectorAll('.h')], bd = grid.querySelector('.bd');
+const vg = [...grid.querySelectorAll('.v')], hr = [...grid.querySelectorAll('.h')], bd = grid.querySelector('.bd'),
+      hr2 = [...grid.querySelectorAll('.h2')];
 
 const GW = 1800, GH = 960;                  // Figma 격자
 const VX = [284, 586, 888, 1190, 1492];     // 세로 겹선(23px) 왼선
 const HY = [237, 480, 724];                 // 가로선
+const HY2 = [158, 200, 359, 401, 560, 602, 761, 803];   // 4번째 휠에 새로 그려지는 가로선 8개 = 42px 간격 4쌍 (Figma 167:2093)
+const GX0 = 1, GW_LINE = 1798;              // 가로선 왼끝 · 길이 (격자 테두리 안쪽)
 const W0 = 284, T0 = 724, POP = 50;         // 박스 기본 = 왼쪽 아래 칸(폭 284, 윗변 724) · 등장 중간 크기 50×50
 const LAP_W = 307;                          // 노트북 폭 — 오른끝이 격자 오른끝(1800)
 const TEXT_Y = 480;                         // 초록 글상자 아래끝 = 이 가로선 바로 위 (stage1.js seqH, 1080 에선 479)
@@ -38,6 +41,9 @@ let shown = false, u = 0, uTo = 0;          // u: 등장 진행(이징 전, 0~1)
 let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록 글이 사라지는 진행(이징 전, 0~1)
 let drag = null, spring = null, raf = 0, lastT = 0;
 let ease = null, inMs = 600, damp = 0.7, freq = 12;
+let gms = 0, gTo = 0;                       // 4번째 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
+let lineEase = null, outMs = 200, gapMs = 200, lnMs = 300;
+const lineTotal = () => Math.max(outMs, gapMs + lnMs);
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -49,6 +55,24 @@ function readVars() {
   inMs = (parseFloat(css('--s1boxIn')) || 0.6) * 1000;
   damp = clamp(parseFloat(css('--s1boxDamp')) || 0.7, 0.05, 1);
   freq = parseFloat(css('--s1boxFreq')) || 12;
+  const m2 = /cubic-bezier\(([^)]+)\)/.exec(css('--s1lineEase'));
+  lineEase = m2 ? bezier(...m2[1].split(',').map(Number)) : bezier(0.45, 0, 0.55, 1);
+  outMs = Math.max(1, (parseFloat(css('--s1lineOut')) || 0.2) * 1000);
+  gapMs = Math.max(0, (parseFloat(css('--s1lineGap')) || 0.2) * 1000);
+  lnMs = Math.max(1, (parseFloat(css('--s1lineIn')) || 0.3) * 1000);
+}
+
+/* ── 4번째 휠 (Figma 167:2190) — 원래 가로선 3개는 오른끝이 왼쪽으로 빠지며 사라지고(폭 1798 → 0),
+ *  --s1lineGap 뒤에 새 가로선 8개가 같은 왼끝에서 오른쪽으로 그려진다(0 → 1798). 휠을 올리면 시간축을 거꾸로 감아 그대로 되돌아간다. */
+function paintLines() {
+  const e = lineEase || ((x) => x);
+  const out = e(clamp(gms / outMs, 0, 1)), inn = e(clamp((gms - gapMs) / lnMs, 0, 1));
+  for (const r of hr) r.setAttribute('width', GW_LINE * (1 - out));
+  hr2.forEach((r, i) => {
+    r.setAttribute('x', GX0);
+    r.setAttribute('y', HY2[i] * sy - 1);
+    r.setAttribute('width', GW_LINE * inn);
+  });
 }
 
 /* 박스 크기(ww, tt) → 오른쪽 요소들의 모습. 숫자 배열 하나로 두면 놓을 때 스프링을 똑같이 걸 수 있다
@@ -145,6 +169,11 @@ function tick(now) {
     busy = busy || v !== vTo;
     if (v === 0 && vTo === 0) hint(true);                    // 다 돌아오면 DRAG ↗ 다시
   }
+  if (gms !== gTo) {                                         // 4번째 휠: 가로줄 갈아끼우기 (되감기는 같은 시간축을 거꾸로)
+    gms = gTo > gms ? Math.min(gTo, gms + dt) : Math.max(gTo, gms - dt);
+    paintLines();
+    busy = busy || gms !== gTo;
+  }
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
     w = W0 + spring.w * f; t = T0 + spring.t * f; spring.f = f;
@@ -177,9 +206,23 @@ export function clearBox() {
   return inMs * (1 - v);
 }
 export function unclearBox() {
-  if (vTo === 0) return 0;
+  if (vTo === 0 || gms > 0) return 0;                        // 4번째 휠(가로줄)이 되감기기 전엔 박스가 안 돌아옴
   vTo = 0; kick();
   return inMs * v;
+}
+
+/* ── 4번째 휠에서 부르는 것 (stage1.js) ── */
+export const gridMorphed = () => gTo > 0;
+export function morphGrid() {
+  if (!shown || vTo !== 1 || v < 1 || gTo > 0) return 0;      // 3번째 휠(박스·초록 글 사라짐)이 끝난 뒤에만
+  readVars();
+  gTo = lineTotal(); kick();
+  return gTo - gms;
+}
+export function unmorphGrid() {
+  if (gTo === 0) return 0;
+  gTo = 0; kick();
+  return gms;
 }
 export function hideBox() {
   if (!shown || uTo === 0 || drag || vTo !== 0 || v > 0) return 0;
@@ -197,6 +240,7 @@ export function boxSizing(stageH, s) {                       // stage1.js sizing
   grid.setAttribute('viewBox', '0 0 ' + GW + ' ' + H);
   bd.setAttribute('height', H - 1);
   for (const g of vg) for (const r of g.children) r.setAttribute('height', H);
+  paintLines();                                              // 새 가로선 세로 자리 (4번째 휠)
   if (shown) render();
   else paintGrid(derive(W0, T0));
 }
