@@ -12,7 +12,19 @@
 <!-- 화면 1: Figma #1 프레임. 1920 기준 무대를 화면에 맞춰 scale (src/stages/stage1.js). 본문은 data.js 의 DUMMY -->
 <section class="layer" id="s1" aria-label="김유진">
   <div id="s1stage">
-    <img id="s1grid" src="/s1/grid.svg" alt="" width="1800" height="960">
+    <!-- 격자 — 선마다 따로 움직이도록 inline. 세로 좌표·높이는 box.js 가 무대 높이에 맞춰 다시 씀 (원본: public/s1/grid.svg) -->
+    <svg id="s1grid" width="1800" height="960" viewBox="0 0 1800 960" aria-hidden="true">
+      <rect class="bd" x=".5" y=".5" width="1799" height="959"/>
+      <g class="v"><rect width="1" height="960"/><rect x="22" width="1" height="960"/></g>   <!-- 겹선 5개: 284 · 586 · 888 · 1190 · 1492 -->
+      <g class="v"><rect width="1" height="960"/><rect x="22" width="1" height="960"/></g>
+      <g class="v"><rect width="1" height="960"/><rect x="22" width="1" height="960"/></g>
+      <g class="v"><rect width="1" height="960"/><rect x="22" width="1" height="960"/></g>
+      <g class="v"><rect width="1" height="960"/><rect x="22" width="1" height="960"/></g>
+      <rect class="h" x="1" width="1798" height="1"/>   <!-- 가로선 3개: 237 · 480 · 724 -->
+      <rect class="h" x="1" width="1798" height="1"/>
+      <rect class="h" x="1" width="1798" height="1"/>
+    </svg>
+    <div id="s1box" aria-hidden="true"></div>   <!-- 네모박스 — 퇴장 뒤 휠에 나타나고, 드래그로 커졌다 놓으면 돌아감 (box.js). 나중에 사진으로 교체 -->
     <div id="s1bodyclip"><p id="s1body"></p></div>
     <div id="s1yearclip"><img id="s1year" src="/s1/year.svg" alt="2026 PORTFOLIO" width="286" height="25"></div>   <!-- 창 안에서 위로 올라가며 격자 윗선에 잘려 사라짐 -->
     <!-- 노트북 — 클릭하면 work.html. 사진은 Figma 에서 좌우 반전·크롭된 상태 그대로, 화면 안 CLICK 은 글자별 SVG 가 깜빡임 -->

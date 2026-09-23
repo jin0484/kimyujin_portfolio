@@ -8,7 +8,20 @@
   --s1wrap: .35;      /* 초록 본문: 26프레임 중 한 구간에서 줄 구조를 갈아끼우는 데 쓰는 비율(0~1). 앞부분은 줄이 고정된 채 폭만 벌어지고, 끝 이만큼에서만 살짝 갈아끼운다. 낮추면 또렷·툭툭, 높이면 부드럽지만 잔상 */
 }
 #s1stage img { position: absolute; display: block }
-#s1grid { left: 60px; top: 60px; width: 1800px; height: calc(100% - 120px) }   /* 사방 60px 여백, 세로는 늘어남 */
+#s1grid { position: absolute; left: 60px; top: 60px; width: 1800px; height: calc(100% - 120px); overflow: hidden; fill: #DFDFDF }   /* 사방 60px 여백, 세로는 늘어남 */
+#s1grid .bd { fill: none; stroke: #DFDFDF }
+
+/* 네모박스 — 격자 왼쪽 아래 칸(284 × 236)에 붙어 있음. 크기·등장은 box.js 가 인라인으로.
+   --s1boxIn: 휠로 나타나는 시간(ease-in-out) · --s1boxEase · --s1boxDamp: 놓았을 때 튕김(낮을수록 많이 넘침, 1 = 안 넘침) · --s1boxFreq: 돌아오는 빠르기 */
+#s1stage { --s1boxIn: .6s; --s1boxEase: cubic-bezier(.45, 0, .55, 1); --s1boxDamp: .7; --s1boxFreq: 12 }
+#s1box {
+  position: absolute; left: 60px; bottom: 60px; width: 284px; height: 236px; z-index: 1;
+  background: #D9D9D9; overflow: hidden; display: none;
+  cursor: grab; touch-action: none; user-select: none;
+}
+#s1box.on { display: block }
+#s1box.grab { cursor: grabbing }
+#s1box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none }   /* 나중에 넣을 사진 — 박스 크기가 바뀌어도 꽉 채움 */
 #s1yearclip { position: absolute; left: 1574px; top: 60px; width: 286px; height: 25px; overflow: hidden }   /* 2026 PORTFOLIO — 격자 윗선(60)에 맞춘 창 */
 #s1year { left: 0; top: 0; width: 286px; height: 25px }
 
@@ -16,6 +29,7 @@
 #s1laptop {
   position: absolute; left: 1553px; width: 307px; height: 244px; overflow: hidden; display: block;
   bottom: 314px; cursor: pointer; z-index: 2;              /* 어느 프레임에서든 노트북 전체가 클릭 영역 */
+  transform-origin: 100% 100%;                             /* 박스에 밀릴 때 오른쪽 아래를 기준으로 작아짐 (box.js) */
 }
 #s1laptop .shot { position: absolute; inset: 0; overflow: hidden; transform: scaleX(-1) }   /* Figma 에서 좌우 반전됨 */
 #s1laptop .shot img { position: absolute; left: -12.74%; top: -13.91%; width: 123.73%; height: 129.19% }   /* Figma 크롭 그대로 */

@@ -5,7 +5,8 @@
  * 격자·본문은 위아래로 늘어나고 KIM YUJIN 은 바닥에 붙는다.
  * 좌표·크기는 Figma 값 그대로 (src/styles/stage1.css). 본문 글은 data.js 의 DUMMY · DUMMY2.
  * 본문: 처음 들어올 때 위에서 아래로 한 줄씩 드러남 (clip-path 를 줄 수만큼의 steps 로 내림).
- * 휠: 첫 휠에 KIM↔YUJIN 스왑(#2 프레임)까지 가서 멈추고, 다음 휠에 되돌아와 멈추고, 세 번째 휠에 퇴장 시퀀스.
+ * 휠: 첫 휠에 KIM↔YUJIN 스왑(#2 프레임)까지 가서 멈추고, 다음 휠에 되돌아와 멈추고, 세 번째 휠에 퇴장 시퀀스,
+ *     네 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄).
  *
  * 트랙이 둘 — 둘 다 같은 위치(pos)를 보지만 표는 따로다:
  *   FRAMES : KIM YUJIN · 2026 PORTFOLIO · 노트북   (화면1.pdf, 10프레임)
@@ -14,7 +15,8 @@
  */
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
-import { $ } from '../utils.js';
+import { $, bezier } from '../utils.js';
+import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown } from './box.js';
 
 const stage = $('#s1stage'), body = $('#s1body'), bodyClip = $('#s1bodyclip'),
       year = $('#s1year'), laptop = $('#s1laptop'), letters = [...stage.querySelectorAll('#s1name img')];
@@ -24,11 +26,13 @@ export function sizing() {
   const s = window.innerWidth / DW;
   stage.style.height = (window.innerHeight / s) + 'px';
   stage.style.transform = 'scale(' + s + ')';
+  boxSizing(window.innerHeight / s, s);                       // 격자 선 · 네모박스 (box.js)
 }
 
 export function refresh() {                                   // 리사이즈 · 폰트 로드 후 (main.js)
   sizing();
   if (tsA) { measureFill(); renderBody(pos); }                // 높이가 달라지면 채울 글 분량도 다시
+  boxRefresh();                                               // 박스가 밀어낸 글상자 높이를 되살림
 }
 
 /* ── 휠 시퀀스 — 화면1.pdf (값은 PDF 에서 그대로 읽음, 1920×1080 기준) ──
@@ -93,13 +97,6 @@ const BODY = [
 const BODY_FROM = 2, BODY_TO = 9;   // FRAMES 의 이 구간(두 번째 정지점 → 끝) 동안 BODY 26프레임이 흐른다
 const H_SEQ = 479;                  // 시퀀스 중 글상자 높이 (Figma). 이 높이를 채우는 만큼만 글을 보여준다
 
-// CSS cubic-bezier(x1,y1,x2,y2) 를 t→진행도 함수로 (--s1stepEase 를 그대로 쓰기 위해)
-function bezier(x1, y1, x2, y2) {
-  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
-  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
-  const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t;
-  return (x) => { let t = x; for (let i = 0; i < 8; i++) { const e = X(t) - x; if (Math.abs(e) < 1e-5) break; t -= e / ((3 * ax * t + 2 * bx) * t + cx || 1e-6); } return Y(Math.min(1, Math.max(0, t))); };
-}
 function easeFn(name) {
   const m = /cubic-bezier\(([^)]+)\)/.exec(getComputedStyle(stage).getPropertyValue(name));
   return m ? bezier(...m[1].split(",").map(Number)) : bezier(0.5, 0, 0.5, 1);
@@ -315,8 +312,13 @@ function tick(now) {
 }
 const atStart = () => pos === 0 && dir === 0;
 function play(d) {
-  if ((d > 0 && pos >= N) || (d < 0 && pos <= 0)) return;
   if (dir === 0 && performance.now() < lockUntil) return;
+  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 다음 휠은 네모박스 (box.js). 올리면 박스가 먼저 들어가고, 그다음 휠에 퇴장이 되감김
+    const ms = d > 0 ? showBox() : hideBox();
+    if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
+    return;
+  }
+  if ((d > 0 && pos >= N) || (d < 0 && pos <= 0)) return;
   buildBody();
   if (atStart()) {                                          // 출발할 때 한 번 잼
     measureFill();
@@ -331,6 +333,7 @@ function play(d) {
 const LINE = 26, LINE_MS = 38;   // 본문 행간(px) · 한 줄 드러나는 간격(ms)
 export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
+  initBox();
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
