@@ -26,7 +26,7 @@ const MARGIN = 1.5;                        // 캔버스 네모 = 링 지름 × �
 
 let renderer, scene, camera, ring, back, hold, bg, bgx, tex, mk, mkx, mtex, cvs;
 const tintU = { uTint: { value: new THREE.Color() }, uCx: { value: 0 }, uD: { value: 1 } };
-let K = {}, lastSig = '', lastPaint = 0, t0 = 0, still = false, side = 0;
+let K = {}, lastSig = '', lastPaint = 0, t0 = 0, still = false, side = 0, reserveW = 0, lastSync = -1e9;
 const grid = $('#s1grid'), nameBox = $('#s1name'), body = $('#s1body'), bodyClip = $('#s1bodyclip');
 const U = $('#s1name .s1-u');
 const letters = [...document.querySelectorAll('#s1name img')];
@@ -90,20 +90,23 @@ function setSide(px) {                                         // 캔버스 크�
   lastSig = '';
 }
 
-/* 링 둘레 네모에 화면 그대로 다시 그리기 — 바탕 · 격자 선 · KIM YUJIN · 초록 글. 가림판(mk)엔 U 만 */
+/* 링 둘레 네모에 화면 그대로 다시 그리기 — 바탕 · 격자 선 · KIM YUJIN · 초록 글. 가림판(mk)엔 U 만.
+ * 네모와 안 겹치는 건 건너뛴다 — 특히 초록 글은 단어 span 이 1,600개라 하나하나 자리를 읽는 것만으로 호버 한 프레임에 5ms 쯤 들었는데,
+ * 첫 화면에선 글 단(왼쪽)과 링(U 옆)이 멀리 떨어져 있어 통째로 건너뛰면 된다 */
 function paintBack(x0, y0) {
   const dpr = bg.width / side, s = innerWidth / DW;
+  const hit = (b) => b.right >= x0 && b.left <= x0 + side && b.bottom >= y0 && b.top <= y0 + side;   // 링 네모와 겹치나
   bgx.setTransform(1, 0, 0, 1, 0, 0);
   bgx.fillStyle = K.paper; bgx.fillRect(0, 0, bg.width, bg.height);
   bgx.setTransform(dpr, 0, 0, dpr, -x0 * dpr, -y0 * dpr);
   bgx.fillStyle = getComputedStyle(grid).fill;
   for (const el of grid.querySelectorAll('rect:not(.bd)')) {
     const b = el.getBoundingClientRect();
-    if (b.width && b.height) bgx.fillRect(b.left, b.top, b.width, b.height);
+    if (b.width && b.height && hit(b)) bgx.fillRect(b.left, b.top, b.width, b.height);
   }
-  // 초록 본문 — 단어 span 마다 같은 자리에 글자로. 창(#s1bodyclip) 밖은 자름
+  // 초록 본문 — 단어 span 마다 같은 자리에 글자로. 창(#s1bodyclip) 밖은 자름 → 창이 네모와 안 겹치면 통째로 건너뜀
   const c = bodyClip.getBoundingClientRect();
-  if (c.width && c.height) {
+  if (c.width && c.height && hit(c)) {
     const cs = getComputedStyle(body);
     bgx.save();
     bgx.beginPath(); bgx.rect(c.left, c.top, c.width, c.height); bgx.clip();
@@ -111,6 +114,7 @@ function paintBack(x0, y0) {
     bgx.fillStyle = cs.color;
     const asc = bgx.measureText('가').fontBoundingBoxAscent;   // span 상자 윗변 = 글꼴 ascent 위 → 기준선
     for (const g of body.children) {
+      if (g.style.display === 'none') continue;                // 안 쓰는 층(겹쳐 갈아끼울 때만 켜짐)
       const a = parseFloat(g.style.opacity || getComputedStyle(g).opacity);
       if (!(a > 0)) continue;
       bgx.globalAlpha = a;
@@ -129,7 +133,7 @@ function paintBack(x0, y0) {
   for (const im of letters) {
     if (!im.complete) continue;
     const b = im.getBoundingClientRect();
-    bgx.drawImage(im, b.left, b.top, b.width, b.height);
+    if (hit(b)) bgx.drawImage(im, b.left, b.top, b.width, b.height);   // 네모 밖 글자는 안 그림 (SVG 를 새 크기로 다시 굽는 것도 아낌)
   }
   bgx.restore();
   tex.needsUpdate = true;
@@ -147,9 +151,17 @@ function paintBack(x0, y0) {
  * U 가 빨리 커졌다 작아지는 동안 그만큼 가림판이 어긋나 링이 엉뚱한 자리에서 잘려 보였다 → U 를 움직인 쪽이 움직인 직후 syncGlass() 로 다시 그림 */
 function frame(now) {
   requestAnimationFrame(frame);
+  // 스테이지가 직전 프레임(또는 이번 프레임)에 syncGlass 로 그렸으면 이번에도 그쪽이 그린다 — 한 프레임에 두 번 렌더하지 않게.
+  // 스테이지가 멈추면 한 프레임만 쉬고 다시 여기서 그림 (40ms = 30Hz 화면의 한 프레임보다 조금 김)
+  if (now - lastSync < 40) return;
   draw(now);
 }
-export function syncGlass() { if (renderer && cvs.isConnected) draw(performance.now()); }   // stage1.js render · clear 끝에서 (KIM YUJIN 을 옮긴 직후)
+export function syncGlass() { if (renderer && cvs.isConnected) { lastSync = performance.now(); draw(lastSync); } }   // stage1.js render · clear 끝에서 (KIM YUJIN 을 옮긴 직후)
+
+/* 호버 스왑으로 U 가 가장 커질 폭(디자인 px, 1920 기준) — stage1.js 가 처음에·setSwap 때 알려 준다.
+ * 캔버스를 처음부터 그 크기로 잡아 두고 호버 중엔 안 바꾼다. U 가 커지는 도중에 32px 단위를 넘을 때마다 캔버스·텍스처를 새로 잡으면
+ * 그 프레임이 20~40ms(첫 번째는 180ms 가까이) 걸려 스프링이 멈칫했다 — 특히 튕겨서 경계를 다시 넘나드는 순간 */
+export function reserveGlass(w) { reserveW = w; }
 
 function draw(now) {
   const s = innerWidth / DW, u = U.getBoundingClientRect();
@@ -166,7 +178,7 @@ function draw(now) {
   const floor = innerHeight - 60 * s;                          // 격자 아랫선
   if (cy - D / 2 > floor || !D) { cvs.style.visibility = 'hidden'; setOver(false); return; }   // 퇴장으로 다 내려갔으면 쉼
   cvs.style.visibility = '';
-  setSide(D * MARGIN);
+  setSide(Math.max(D, reserveW * s * K.size) * MARGIN);        // 호버 스왑 중엔 가장 커질 때 크기로 고정 (reserveGlass)
 
   const dpr = bg.width / side;
   const x0 = Math.round((cx - side / 2) * dpr) / dpr, y0 = Math.round((cy - side / 2) * dpr) / dpr;

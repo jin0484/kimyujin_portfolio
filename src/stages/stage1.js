@@ -20,7 +20,7 @@ import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
-import { syncGlass } from '../glass.js';
+import { syncGlass, reserveGlass } from '../glass.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
@@ -338,18 +338,42 @@ function measureFill() {                                      // 상자를 꽉 �
 }
 
 /* ── 첫 화면: 초록 글이 KIM(YUJIN) 외곽을 피해 흐름 — 외곽이 움직이면 글도 같이 밀려남 ──
- *  지금 글자 배치(호버 swapS · 퇴장으로 내려간 거리 nameDrop)대로 글자 SVG 를 캔버스에 그려, 줄(26px)마다 글자가 차지한
- *  가로 구간을 읽고 --s1flowGap 만큼 띄운 나머지 빈 구간에 글을 흘린다(Pretext layoutNextLine).
+ *  지금 글자 배치(호버 swapS · 퇴장으로 내려간 거리 nameDrop)대로, 미리 읽어 둔 글자 외곽(readMasks)을 늘려 얹어 줄(26px)마다 글자가 차지한
+ *  가로 구간을 구하고 --s1flowGap 만큼 띄운 나머지 빈 구간에 글을 흘린다(Pretext layoutNextLine).
  *  --s1flowMin 보다 좁은 빈 구간(K·I·M 사이 틈)은 비우고, M 아치 안쪽처럼 넉넉한 곳은 채운다.
  *  호버로 글자가 커지고 작아지는 동안, 퇴장으로 내려가는 동안 매 프레임 다시 흘려서 단어가 외곽에 밀리고 다음 줄로 넘어간다.
  *  퇴장 휠 첫 구간(글상자가 격자 전체 → 가운데선으로 줄어드는 동안)까지만 이 조판이고, 그다음부터는 원래 사각형 조판.
  *  글자 영역 위쪽 줄은 막힌 데가 없어 사각형 조판과 줄바꿈이 똑같다 — 그래서 갈아끼워도 보이는 줄은 안 바뀐다. */
-let flowKey = '', flowCache = null, flowCv = null, nameDrop = 0;
+let flowKey = '', flowCache = null, nameDrop = 0;
 function kimFlow() {
   if (!tsA || !letters.every((im) => im.complete && im.naturalWidth)) return null;   // 글자 그림이 아직이면 사각형 조판
   const key = swapS.toFixed(3) + '|' + nameDrop.toFixed(1) + '|' + fullH;
   if (key !== flowKey) { const rows = kimRows(); flowKey = key; flowCache = rows ? tsA.flow(rows) : null; }
   return flowCache;
+}
+/* 글자마다 외곽을 **한 번만** 읽어 둔다 — 행마다 잉크가 있는 가로 구간들(글자 폭·높이 대비 0~1 비율).
+ * 예전엔 매 프레임 글자를 캔버스에 그려 픽셀을 전부 읽었는데, 그게 호버 한 프레임에 7ms 쯤(1920 기준) 들어서
+ * 스프링이 멈칫하는 가장 큰 원인이었다. 크기가 바뀌어도 비율이라 그대로 늘려 쓰면 된다. 가장 커질 때 크기로 읽어 둠 */
+let letterMasks = null;
+function readMasks() {
+  const cv = document.createElement('canvas'), g = cv.getContext('2d', { willReadFrequently: true });
+  return letters.map((im, k) => {
+    const mw = Math.ceil(Math.max(NAME_A[k][2], NAME_B[k][2])), mh = Math.ceil(Math.max(NAME_A[k][3], NAME_B[k][3]));
+    cv.width = mw; cv.height = mh;
+    g.drawImage(im, 0, 0, mw, mh);
+    const px = g.getImageData(0, 0, mw, mh).data, rows = [];
+    for (let y = 0; y < mh; y++) {
+      const runs = [];                                           // [시작, 끝, 시작, 끝, …]
+      for (let x = 0, o = y * mw * 4 + 3; x < mw; x++, o += 4) {
+        if (px[o] <= 8) continue;
+        const a = x;
+        while (x < mw && px[o] > 8) { x++; o += 4; }
+        runs.push(a / mw, x / mw);
+      }
+      rows.push(runs);
+    }
+    return rows;
+  });
 }
 function kimRows() {
   const cs = getComputedStyle(stage);
@@ -357,27 +381,35 @@ function kimRows() {
   const CX = BODY[0][0], CY = 60, CW = BODY[0][1], stH = Math.ceil(parseFloat(stage.style.height) || 0);
   if (!(stH > 0 && fullH > 0)) return null;
   const name = $('#s1name'), nTop = name.offsetTop, nBot = nTop + name.offsetHeight;   // 글자 창 — 이 밖으로 나간 부분은 안 보이므로 안 막음
-  if (!flowCv) flowCv = document.createElement('canvas');
-  if (flowCv.width !== CW || flowCv.height !== stH) { flowCv.width = CW; flowCv.height = stH; }
-  const g = flowCv.getContext('2d', { willReadFrequently: true });
-  g.clearRect(0, 0, CW, stH);
+  if (!letterMasks) letterMasks = readMasks();
+  const placed = [];                                             // [외곽, x, y, w, h] — 본문 단 기준 좌표
   let top = nBot;
   letters.forEach((im, k) => {
     const P = NAME_A[k], Q = NAME_B[k];
     const l = lerp(P[0], Q[0], swapS), b = lerp(P[1], Q[1], swapS), w = lerp(P[2], Q[2], swapS), h = lerp(P[3], Q[3], swapS);
-    const y = nBot - b - h + nameDrop;
-    if (name.offsetLeft + l - CX > CW) return;                   // 본문 단 오른쪽 밖 (YUJIN 대부분)
-    g.drawImage(im, name.offsetLeft + l - CX, y, w, h);
+    const x = name.offsetLeft + l - CX, y = nBot - b - h + nameDrop;
+    if (x > CW) return;                                          // 본문 단 오른쪽 밖 (YUJIN 대부분)
+    placed.push([letterMasks[k], x, y, w, h]);
     top = Math.min(top, Math.max(nTop, y));
   });
   const yA = Math.max(0, Math.floor(top - G)), yB = Math.min(stH, nBot);
-  const px = yB > yA ? g.getImageData(0, yA, CW, yB - yA).data : null;
-  const rows = [], n = Math.floor(fullH / LH) + 3;
+  const rows = [], n = Math.floor(fullH / LH) + 3, occ = new Uint8Array(CW);
   for (let li = 0; li < n; li++) {
     const y0 = Math.max(yA, CY + li * LH - G), y1 = Math.min(yB, CY + (li + 1) * LH + G);
-    if (!px || y1 <= y0) { rows.push([[0, CW]]); continue; }      // 글자 영역에 안 닿는 줄은 통째로
-    const occ = new Uint8Array(CW);
-    for (let y = y0; y < y1; y++) for (let x = 0, o = (y - yA) * CW * 4 + 3; x < CW; x++, o += 4) if (px[o] > 8) occ[x] = 1;
+    if (yB <= yA || y1 <= y0) { rows.push([[0, CW]]); continue; } // 글자 영역에 안 닿는 줄은 통째로
+    occ.fill(0);
+    for (const [R, x, y, w, h] of placed) {                      // 이 줄 높이에 걸친 외곽 행들의 가로 구간을 지금 크기로 늘려서 막음
+      const v0 = (y0 - y) / h, v1 = (y1 - y) / h;
+      if (v1 <= 0 || v0 >= 1) continue;
+      const r1 = Math.min(R.length, Math.ceil(v1 * R.length));
+      for (let r = Math.max(0, Math.floor(v0 * R.length)); r < r1; r++) {
+        const runs = R[r];
+        for (let i = 0; i < runs.length; i += 2) {
+          const xa = Math.max(0, Math.round(x + runs[i] * w)), xb = Math.min(CW, Math.round(x + runs[i + 1] * w));
+          if (xb > xa) occ.fill(1, xa, xb);
+        }
+      }
+    }
     const free = []; let a = 0;                                   // 글자 구간 양옆을 G 만큼 넓혀 막고, 남은 구간 중 넉넉한 것만
     for (let x = 0; x <= CW; x++) {
       if (x < CW && !occ[x]) continue;
@@ -466,13 +498,22 @@ function swapTick(now) {
   if (!raf) { render(eased(pos)); renderBody(pos); }         // 휠 시퀀스가 돌고 있으면 그쪽 tick 이 같이 그림
   swapRaf = done ? 0 : requestAnimationFrame(swapTick);
 }
+const swapDampCss = () => Math.min(1, Math.max(0.05, parseFloat(getComputedStyle(stage).getPropertyValue('--s1swapDamp')) || 0.6));
+// 호버 스프링에서 U 가 가장 커질 폭(디자인 px) — 출발 폭, 또는 목표 폭 + 넘치는 만큼(처음 속도 0 인 감쇠 스프링의 최대 넘침 비율).
+// 유리 링 캔버스를 처음부터 이 크기로 잡아 두게 glass.js 에 알려 준다 (reserveGlass)
+function swapPeakU(from, to, z) {
+  const ov = z < 1 ? Math.exp(-Math.PI * z / Math.sqrt(1 - z * z)) : 0;
+  const uw = (x) => lerp(NAME_A[4][2], NAME_B[4][2], x), a = uw(from), b = uw(to);
+  return Math.max(a, b + Math.max(0, b - a) * ov);
+}
 function setSwap(v) {
   if (swapTo === v) return;
-  const cs = getComputedStyle(stage);
-  swapDamp = Math.min(1, Math.max(0.05, parseFloat(cs.getPropertyValue('--s1swapDamp')) || 0.6));
-  const T = Math.max(0.05, parseFloat(cs.getPropertyValue('--s1swap')) || 0.7);
+  swapDamp = swapDampCss();
+  const T = Math.max(0.05, parseFloat(getComputedStyle(stage).getPropertyValue('--s1swap')) || 0.7);
   swapFreq = 4 / (swapDamp * T);                             // 가라앉는 시간 T 에서 거꾸로 뽑음 (4 / (z·ω) ≈ 정착 시간)
   swapFrom = swapS; swapTo = v; swapT0 = performance.now();  // 돌아오는 중에 다시 올리면 그 자리에서 이어서
+  // 넘치는 도중에 반대로 틀면 한 번 튕길 때보다 조금 더 벌어질 수 있어서 그것까지
+  reserveGlass(Math.max(swapPeakU(0, 1, swapDamp), swapPeakU(swapFrom, v, swapDamp)));
   if (!swapRaf) swapRaf = requestAnimationFrame(swapTick);
 }
 function clear() {                                          // 위치 0 — 인라인 지우고 CSS 값으로
@@ -538,6 +579,7 @@ export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
   initBox(squeezeBody);
   initAbout();                                                // ABOUT ME 클릭 → 이력 (about.js)
+  reserveGlass(swapPeakU(0, 1, swapDampCss()));               // 유리 링 캔버스를 YUJIN 크게 + 튕김 크기로 미리 — 첫 호버에서 새로 잡느라 멈칫하지 않게
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
