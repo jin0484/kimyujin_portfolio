@@ -13,7 +13,7 @@
  *   BODY   : 초록 작은 글자                        (Figma "초록 작은 글자 모션" 섹션 120:1010, 26프레임)
  * 본문 프레임이 훨씬 촘촘해서 한 표에 못 담는다. 나눠두면 한쪽을 고쳐도 다른 쪽 타이밍이 안 흔들린다.
  */
-import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
+import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown } from './box.js';
@@ -196,6 +196,47 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
     P.shown = nVis;
   }
+  // 줄마다 비어 있는 구간들(rows[줄] = [[x0, x1], …], 창 기준)에 글을 차례로 흘려 넣는다 — 첫 화면에서 KIM 을 피해 흐르게.
+  // Pretext layoutNextLine 으로 구간 폭마다 한 줄씩. 단어가 구간보다 길어 잘리면 그 구간은 비우고 다음 구간으로
+  function flow(rows) {
+    const segs = []; let cur = { segmentIndex: 0, graphemeIndex: 0 }, ui = 0;
+    for (let li = 0; li < rows.length && ui < units.length; li++) {
+      for (const [a, b] of rows[li]) {
+        const ln = layoutNextLine(prepared, cur, b - a);
+        if (!ln) break;
+        if (ln.end.graphemeIndex !== 0) continue;             // 단어 중간에서 끊김 = 구간이 단어보다 좁음
+        const s = ln.text.trim();
+        const n = mode === 'word' ? (s ? s.split(' ').filter(Boolean).length : 0) : [...s].length;
+        if (!n) continue;
+        segs.push({ i0: ui, n, x: a, w: b - a, y: li * LH });
+        ui += n; cur = ln.end;
+      }
+    }
+    return { segs, count: ui, id: Math.random() };
+  }
+  function placeFlow(P, F, nVis) {                            // 구간마다 양끝맞춤 (마지막 구간만 왼끝)
+    nVis = Math.max(0, Math.min(F.count, Math.round(nVis)));
+    const key = 'f|' + F.id + '|' + nVis;
+    if (key === P.key) return;
+    P.key = key;
+    let i = 0;
+    F.segs.forEach(({ i0, n, x, w, y }, si) => {
+      if (i >= nVis) return;
+      let sum = 0; for (let k = 0; k < n; k++) sum += uw[i0 + k];
+      let extra = n > 1 && si < F.segs.length - 1 ? Math.max(0, w - sum - gap * (n - 1)) / (n - 1) : 0;
+      if (extra > 18) extra = 0;                              // 좁은 구간에 단어 두세 개면 사이가 휑하게 벌어짐 — 그땐 왼끝 정렬(글자 외곽에 붙음)
+      for (let k = 0, xx = x; k < n && i < nVis; k++, i++) { P.els[i].style.transform = 'translate(' + xx.toFixed(1) + 'px,' + y + 'px)'; xx += uw[i] + gap + extra; }
+    });
+    for (let k = P.shown; k < nVis; k++) P.els[k].style.display = '';
+    for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
+    P.shown = nVis;
+  }
+  function showFlow(F, nVis, alpha) {
+    if (alpha <= 0) { pair[0].el.style.display = pair[1].el.style.display = 'none'; return; }
+    placeFlow(pair[0], F, nVis);
+    pair[0].el.style.display = ''; pair[0].el.style.opacity = alpha;
+    pair[1].el.style.display = 'none';
+  }
   // structA → structB 로 ft(0~1) 만큼 갈아끼운 모습을, 전체 alpha 로. 구조가 같으면 겹치지 않는다
   function show(boxW, lastAlign, nVis, structA, structB, ft, alpha) {
     if (alpha <= 0) { pair[0].el.style.display = pair[1].el.style.display = 'none'; return; }
@@ -210,7 +251,7 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
       pair[1].el.style.opacity = alpha * Math.sqrt(ft);
     } else pair[1].el.style.display = 'none';
   }
-  return { els: [pair[0].el, pair[1].el], count: units.length, fitCount, show };
+  return { els: [pair[0].el, pair[1].el], count: units.length, fitCount, show, flow, showFlow };
 }
 
 let tsA = null, tsB = null, nAll = 0, nSeq = 0;
@@ -235,7 +276,45 @@ function measureFill() {                                      // 상자를 꽉 �
   if (h > 0) fullH = h;
   nAll = tsA.fitCount(BODY[0][1], fullH > 0 ? fullH : 1e4, 2);   // 처음: 격자 아래선까지 꽉 — 걸치는 줄은 잘리게 두 줄 더
   nSeq = tsA.fitCount(BODY[0][1], H_SEQ);                        // 시퀀스: 479px(18줄), Figma 그대로
+  kimFlow = null;
+  const rows = kimRows();                                        // 첫 화면은 KIM 을 피해 흐름 — 채울 분량도 그 조판 기준
+  if (rows) { kimFlow = tsA.flow(rows); nAll = kimFlow.count; }
   buildBodyCurves();                                             // 높이 칸에 fullH 가 들어가므로 여기서 같이 짓는다
+}
+
+/* ── 첫 화면: 초록 글이 KIM 외곽을 피해 흐름 ──
+ *  글자 SVG 를 캔버스에 그려 줄(26px)마다 글자가 차지한 가로 구간을 읽고, --s1flowGap 만큼 띄운 나머지 빈 구간에 글을 흘린다.
+ *  --s1flowMin 보다 좁은 빈 구간(K·I·M 사이 틈)은 비우고, M 아치 안쪽처럼 넉넉한 곳은 채운다.
+ *  퇴장 휠 첫 구간(BODY #3 → #3', 글상자가 격자 전체 → 479 로 줄어드는 동안)까지만 이 조판이고, 그다음부터는 원래 사각형 조판.
+ *  1920×1080 기준 KIM 위끝(642)이 479 상자 아래끝(539)보다 아래라, 갈아끼울 때 보이는 줄은 두 조판이 똑같다. */
+let kimFlow = null;
+function kimRows() {
+  if (!letters.every((im) => im.complete && im.naturalWidth)) return null;   // 글자 그림이 아직이면 사각형 조판
+  const cs = getComputedStyle(stage);
+  const M = parseFloat(cs.getPropertyValue('--s1flowGap')) || 12, MIN = parseFloat(cs.getPropertyValue('--s1flowMin')) || 40;
+  const CX = BODY[0][0], CY = 60, CW = BODY[0][1], stH = Math.ceil(parseFloat(stage.style.height) || 0);
+  if (!(stH > 0 && fullH > 0)) return null;
+  const cv = document.createElement('canvas'); cv.width = CW; cv.height = stH;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  const name = $('#s1name');
+  for (const im of letters) g.drawImage(im, name.offsetLeft + im.offsetLeft - CX, name.offsetTop + im.offsetTop, im.offsetWidth, im.offsetHeight);
+  const px = g.getImageData(0, 0, CW, stH).data;
+  const rows = [], n = Math.floor(fullH / LH) + 3;
+  for (let li = 0; li < n; li++) {
+    const y0 = Math.max(0, CY + li * LH - M), y1 = Math.min(stH, CY + (li + 1) * LH + M);
+    const occ = new Uint8Array(CW);
+    for (let y = y0; y < y1; y++) for (let x = 0, o = y * CW * 4 + 3; x < CW; x++, o += 4) if (px[o] > 8) occ[x] = 1;
+    const free = []; let a = 0;                                   // 글자 구간 양옆을 M 만큼 넓혀 막고, 남은 구간 중 넉넉한 것만
+    for (let x = 0; x <= CW; x++) {
+      if (x < CW && !occ[x]) continue;
+      const b = x === CW ? CW : x - M;
+      if (b - a >= MIN) free.push([a, b]);
+      while (x < CW && occ[x]) x++;
+      a = x + M;
+    }
+    rows.push(free);
+  }
+  return rows;
 }
 
 let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, bodyEase = null, lockUntil = 0, wrapFade = 0.35;   // pos: 프레임 단위 위치 0 ~ n
@@ -260,7 +339,8 @@ function renderBody(p) {
   body.style.width = w + 'px';
   // 구간의 앞부분은 줄 구조를 그대로 둔 채 폭만 벌어지고(단어가 줄을 안 건넘), 끝 wrapFade 만큼에서 다음 구조로 갈아낀다
   const ft = t <= 1 - wrapFade ? 0 : (t - (1 - wrapFade)) / wrapFade;
-  tsA.show(w, lastAlign, nVis,      A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
+  if (kimFlow && i === 0) tsA.showFlow(kimFlow, nVis, 1);   // 첫 구간까지는 KIM 을 피해 흐르는 조판
+  else tsA.show(w, lastAlign, nVis, A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
   tsB.show(w, lastAlign, tsB.count, A[1], B[1], ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
 // 네모박스(box.js)가 본문을 밀 때 — 퇴장 끝 상태(바뀐 글, 마지막 줄 오른끝)를 왼끝·높이만 바꿔 다시 조판. 오른끝은 격자 오른선 1860
@@ -335,6 +415,9 @@ export function initStage1() {
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
+  // KIM 글자 그림이 다 오면 피해 흐르는 조판으로 다시 (그 전엔 사각형 조판)
+  Promise.all(letters.map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})))
+    .then(() => ready).then(() => { if (tsA && pos === 0) { measureFill(); renderBody(pos); } });
   setTimeout(() => {                                          // 본문 한 줄씩 드러내기
     const n = Math.max(1, Math.floor(bodyClip.clientHeight / LINE));
     body.style.transition = 'clip-path ' + (n * LINE_MS) + 'ms steps(' + n + ', end)';
