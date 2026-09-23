@@ -162,6 +162,7 @@ export function initBox(squeezeBody) {
     e.preventDefault();
     box.setPointerCapture(e.pointerId);
     spring = null;                                           // 튕기는 중에 다시 잡으면 그 자리에서 이어서
+    $('#s1drag').classList.add('gone');                      // DRAG ↗ 안내 — 한 번 잡으면 다시 안 나옴
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t };
     box.classList.add('grab');
   });

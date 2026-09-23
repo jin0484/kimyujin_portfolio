@@ -22,6 +22,14 @@
 }
 #s1box.on { display: block }
 #s1box.grab { cursor: grabbing }
+/* DRAG ↗ — Figma 144:891: 박스 오른쪽 위 안쪽 20px, Chillax Medium 32/26, 화살표 20. 처음 끌면 사라짐 */
+#s1drag {
+  position: absolute; top: 20px; right: 20px; z-index: 1; display: flex; align-items: center; gap: 10px; pointer-events: none;
+  font-family: 'Chillax', var(--grot); font-weight: 500; font-size: 32px; line-height: 26px; letter-spacing: -0.64px; color: #000; white-space: nowrap;
+  transition: opacity .2s;
+}
+#s1drag svg { width: 21.0607px; height: 21.0607px; margin: 0 0 -1.06px -1.06px; fill: none; stroke: #000; stroke-width: 3 }   /* Figma 화살표 20×20 (선 두께만큼 왼쪽·아래로 삐져나옴) */
+#s1drag.gone { opacity: 0 }
 #s1box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none }   /* 나중에 넣을 사진 — 박스 크기가 바뀌어도 꽉 채움 */
 #s1yearclip { position: absolute; left: 1574px; top: 60px; width: 286px; height: 25px; overflow: hidden }   /* 2026 PORTFOLIO — 격자 윗선(60)에 맞춘 창 */
 #s1year { left: 0; top: 0; width: 286px; height: 25px }
