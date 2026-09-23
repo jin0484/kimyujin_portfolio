@@ -19,9 +19,43 @@
 import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
-import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed } from './box.js';
+import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
+/* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
+ *  첫 화면에선 올라와 둥둥 떠 있다가, 스크롤을 내리기 시작하면 납작하게 눌려 막대가 되고
+ *  그 막대가 휠 진행만큼 채워진다. 진행도는 네 단계를 이어붙인 것:
+ *    퇴장(pos/N) + 박스 등장·사라짐(box.js boxProgress) + 격자 가로줄·ABOUT ME(box.js lineProgress)
+ *  되감아 첫 화면으로 돌아오면 막대가 다시 글자로 펴진다. */
+const scrollEl = $('#s1scroll'), scrollFill = scrollEl.querySelector('u');
+const SCROLL_STAGES = 4;
+const scrollHint = (on) => scrollEl.classList.toggle('on', on);
+let hintUpAt = Infinity, barT = 0;                          // 글자가 다 올라오는 시각 — 그 전에 굴리면 눌리는 걸 못 보므로 기다렸다 시작
+function scrollBar(on) {
+  clearTimeout(barT);
+  if (!on) {
+    if (scrollEl.classList.contains('bar')) {               // 막대 → 글자로 도로 펴짐 (같은 동작을 거꾸로)
+      scrollEl.classList.remove('bar'); scrollEl.classList.add('unbar');
+      const ms = (parseFloat(getComputedStyle(scrollEl).getPropertyValue('--s1scrollSquash')) || 1.2) * 1000;
+      barT = setTimeout(() => scrollEl.classList.remove('unbar'), ms);
+    }
+    return;
+  }
+  scrollEl.classList.remove('unbar');
+  const left = hintUpAt - performance.now();
+  if (left > 0) barT = setTimeout(() => scrollEl.classList.add('bar'), left);
+  else scrollEl.classList.add('bar');
+}
+function paintScroll() {
+  const p = (pos / N + boxProgress() + lineProgress()) / SCROLL_STAGES;
+  scrollFill.style.width = Math.min(100, Math.max(0, p * 100)) + '%';
+}
+let barRaf = 0;                                             // 박스·격자 단계는 저쪽 모듈이 따로 굴려서, 그동안만 따라 그린다
+function followBar(ms) {
+  const t0 = performance.now();
+  const step = (now) => { paintScroll(); barRaf = now - t0 < ms + 150 ? requestAnimationFrame(step) : 0; };
+  if (!barRaf) barRaf = requestAnimationFrame(step);
+}
 const stage = $('#s1stage'), body = $('#s1body'), bodyClip = $('#s1bodyclip'),
       year = $('#s1year'), laptop = $('#s1laptop'), letters = [...stage.querySelectorAll('#s1name img')];
 const DW = 1920;
@@ -440,6 +474,7 @@ function setSwap(v) {
   if (!swapRaf) swapRaf = requestAnimationFrame(swapTick);
 }
 function clear() {                                          // 위치 0 — 인라인 지우고 CSS 값으로
+  scrollHint(true); scrollBar(false);                       // 첫 화면으로 돌아왔으면 막대가 다시 글자로 펴진다
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
   body.style.width = ""; year.style.transform = ""; laptop.style.bottom = "";
   for (const e of letters) e.style.transform = "";
@@ -464,18 +499,20 @@ function tick(now) {
   if (stop !== undefined) { pos = stop; dir = 0; lockUntil = now + 400; }   // 같은 휠 동작이 정지점을 뚫지 않게 잠깐 잠금
   render(eased(pos));                                                 // 글자·라벨·노트북 (--s1stepEase)
   renderBody(pos);                                                    // 본문 (이징 전 위치 — 안에서 --s1bodyEase 를 건다)
+  paintScroll();                                                      // 아래 여백 막대
   if (dir === 0 && pos === 0) clear();
   raf = dir ? requestAnimationFrame(tick) : 0;
 }
 const atStart = () => pos === 0 && dir === 0;
 function play(d) {
+  if (d > 0) scrollBar(true);                               // 굴리기 시작하면 글자가 눌려 막대가 됨
   if (dir === 0 && performance.now() < lockUntil) return;
   if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js).
                                                              // 휠을 올리면 한 단계씩 되돌아가고, 다 되돌아간 뒤 그다음 휠에 퇴장이 되감김
     // 마지막 휠은 격자 가로줄 갈아끼우기와 ABOUT ME 를 **같이** 돌린다 — 둘을 따로 두면 선만 바뀌는 빈 구간이 생겨서
     const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : Math.max(morphGrid(), showAbout()))
                      : (cvShown() ? closeCv() : aboutShown() || gridMorphed() ? Math.max(hideAbout(), unmorphGrid()) : boxCleared() ? unclearBox() : hideBox());
-    if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
+    if (ms) { lockUntil = performance.now() + ms + 300; followBar(ms); }   // 같은 휠 동작(관성)이 이어서 되감기지 않게
     return;
   }
   if ((d > 0 && pos >= N) || (d < 0 && pos <= 0)) return;
@@ -504,6 +541,10 @@ export function initStage1() {
   // KIM 글자 그림이 다 오면 피해 흐르는 조판으로 다시 (그 전엔 사각형 조판)
   Promise.all(letters.map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})))
     .then(() => ready).then(() => { if (tsA && pos === 0) { measureFill(); renderBody(pos); } });
+  const cs1 = getComputedStyle($('#s1'));
+  const waitMs = (parseFloat(cs1.getPropertyValue('--s1scrollWait')) || 0.6) * 1000;
+  hintUpAt = performance.now() + waitMs + (parseFloat(cs1.getPropertyValue('--s1scrollIn')) || 0.7) * 1000;
+  setTimeout(() => scrollHint(true), waitMs);
   setTimeout(() => {                                          // 본문 한 줄씩 드러내기
     const n = Math.max(1, Math.floor(bodyClip.clientHeight / LINE));
     body.style.transition = 'clip-path ' + (n * LINE_MS) + 'ms steps(' + n + ', end)';

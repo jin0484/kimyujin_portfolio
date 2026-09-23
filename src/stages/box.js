@@ -12,8 +12,8 @@
  *   노트북  — 박스 오른변이 노트북 왼끝을 넘으면 오른쪽 아래 기준으로 작아짐 (폭 = 격자 오른끝 − 박스 오른변)
  * 좌표는 Figma 격자(1800 × 960) 기준. 세로는 무대 높이에 맞춰 늘어나므로 그릴 때 sy 를 곱한다.
  *
- * 등장이 끝나면 한 번 "숨쉰다" — 혼자 살짝 커졌다 스프링으로 돌아온다(--s1boxHint). 끌 수 있다는 걸 알리는 힌트라
- * 놓았을 때와 똑같은 움직임을 쓴다. 0 으로 두면 안 함.
+ * 등장이 끝나면 한 번 "숨쉰다" — 커지는 것과 돌아오는 것이 **한 동작**이다(--s1boxHint). 끌 수 있다는 걸 알리는 힌트.
+ * 커졌다가 멈춘 뒤 튕기면 꼭대기에서 멈칫하는 게 보이므로, 처음부터 속도를 준 스프링(임펄스)으로 쭉 나갔다 돌아온다. 0 으로 두면 안 함.
  *
  * 3번째 휠(Figma "3번째 휠" 152:1046, 0.6초): 박스는 왼쪽 아래 기준, 초록 글상자는 오른쪽 위 기준으로 같은 비율로 작아져 사라짐.
  *   글상자 폭이 줄어드는 만큼 글이 다시 조판된다. 휠 올리면 반대로.
@@ -44,8 +44,8 @@ let shown = false, u = 0, uTo = 0;          // u: 등장 진행(이징 전, 0~1)
 let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록 글이 사라지는 진행(이징 전, 0~1)
 let drag = null, spring = null, raf = 0, lastT = 0;
 let ease = null, inMs = 600, damp = 0.7, freq = 12;
-let hintT0 = 0, hintMs = 250;               // 등장 직후 한 번 커지는 힌트 (이 뒤에 스프링으로 복귀)
-const HINT_W = 30, HINT_T = 26;             // 힌트로 커지는 양(px) — 격자 선 하나가 밀릴 만큼만
+let hintT0 = 0, hintMs = 180;               // 등장 직후 한 번 크게 숨쉬는 힌트 — 제일 커지기까지 걸리는 시간
+const HINT_W = 30, HINT_T = 26;             // 힌트로 제일 커지는 양(px) — 격자 선 하나가 밀릴 만큼만
 let gms = 0, gTo = 0;                       // 마지막 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
 let lineEase = null, outMs = 200, gapMs = 200, lnMs = 300;
 const lineTotal = () => Math.max(outMs, gapMs + lnMs);
@@ -66,6 +66,17 @@ function readVars() {
   gapMs = Math.max(0, (parseFloat(css('--s1lineGap')) || 0.2) * 1000);
   lnMs = Math.max(1, (parseFloat(css('--s1lineIn')) || 0.3) * 1000);
   hintMs = Math.max(0, (parseFloat(css('--s1boxHint')) || 0) * 1000);
+}
+
+/* 힌트 — 0 에서 속도를 받아 나갔다 돌아오는 스프링(임펄스 응답). 0 → 1(제일 커짐) → 0, 반대로 살짝 넘쳤다 가라앉는다.
+ *  놓을 때 쓰는 springAt 은 "1 에서 0 으로" 라 시작이 정지 상태다 — 커지는 걸 따로 붙이면 꼭대기에서 멈칫한다.
+ *  제일 커지는 시각이 hintMs 가 되도록 振동수를 거꾸로 뽑고, 그때 값이 1 이 되게 나눠 맞춘다 (넘치는 정도는 --s1boxDamp 그대로) */
+function hintAt(ms) {
+  const z = clamp(damp, 0.05, 0.99), r = Math.sqrt(1 - z * z);
+  const om = Math.atan2(r, z) / ((hintMs / 1000) * r);
+  const od = om * r, tp = Math.atan2(od, z * om) / od;
+  const P = Math.exp(-z * om * tp) * Math.sin(od * tp);
+  return Math.exp(-z * om * ms / 1000) * Math.sin(od * ms / 1000) / P;
 }
 
 /* ── 4번째 휠 (Figma 167:2190) — 원래 가로선 3개는 오른끝이 왼쪽으로 빠지며 사라지고(폭 1798 → 0),
@@ -181,11 +192,11 @@ function tick(now) {
     paintLines();
     busy = busy || gms !== gTo;
   }
-  if (hintT0) {                                              // 등장 직후 힌트 — 살짝 커졌다가
-    const k = ease ? ease(clamp((now - hintT0) / hintMs, 0, 1)) : 1;
+  if (hintT0) {                                              // 등장 직후 힌트 — 커지는 것과 돌아오는 것이 한 동작
+    const el = now - hintT0, k = hintAt(el);
     w = W0 + HINT_W * k; t = T0 - HINT_T * k;
-    if (k >= 1) { hintT0 = 0; spring = { t0: now, w: HINT_W, t: -HINT_T, f: 1, d0: derive(w, t) }; }   // 놓았을 때와 같은 스프링으로 복귀
-    busy = true;
+    if (el > hintMs * 2 && Math.abs(k) < 2e-3) { hintT0 = 0; w = W0; t = T0; }
+    else busy = true;
   }
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
@@ -243,6 +254,10 @@ export function hideBox() {
   uTo = 0; kick();
   return inMs * u;
 }
+
+/* 아래 여백 막대(stage1.js paintScroll)가 쓰는 진행도 — 박스 등장(0~1) + 사라짐(0~1) · 가로줄 갈아끼우기(0~1) */
+export const boxProgress = () => u + v;
+export const lineProgress = () => clamp(gms / Math.max(1, lineTotal()), 0, 1);
 
 export function boxSizing(stageH, s) {                       // stage1.js sizing() — 무대 높이가 바뀌면 격자 세로 좌표를 다시
   if (!(s > 0) || !isFinite(stageH)) return;                 // 창 폭이 0 일 때(숨은 탭 등)

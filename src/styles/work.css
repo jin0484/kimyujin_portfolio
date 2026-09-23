@@ -1,5 +1,12 @@
-/* ══════════ WORK 페이지 (work.html) — Figma "Work #1": 격자만 (임시) ══════════
-   화면 1 과 같은 규칙: 1920 기준 60px 여백 = 3.125vw, 세로는 뷰포트에 맞춰 격자가 늘어남 */
-body { background: #232323 }
-#work { position: fixed; inset: 0; background: #232323; clip-path: inset(var(--pad)) }   /* 화면 1 과 같은 규칙 — 격자 바깥은 잘라냄 */   /* 격자는 public/work/grid.svg (화면 1 격자와 같은 모양, 선 색만 #333333) */
-#workgrid { position: absolute; left: 3.125vw; top: 3.125vw; width: calc(100% - 6.25vw); height: calc(100% - 6.25vw); display: block }
+/* ══════════ WORK 페이지 (work.html) — Figma "#1" 153:1092 ══════════
+   #0c0c0c 바닥 한가운데 초록 CLICK 하나. 화면 1 노트북 화면에서 깜빡이던 그 글자가 화면을 꽉 채운 것 —
+   노트북을 누르면 이 페이지가 아래에서 올라와 덮는다 (전환은 work.html head 의 View Transitions).
+   크기는 화면 1 과 같은 규칙으로 1920 기준 비율. Figma 는 693.828 × 138.8 인데 너무 커서 **절반**으로 줄임 —
+   1920 에서 346.9 × 69.4 (693.828 / 2 / 1920 = 18.0684vw · 138.8 / 2 / 1920 = 3.6146vw) */
+body { background: #0c0c0c }
+#work { position: fixed; inset: 0; background: #0c0c0c; display: grid; place-items: center; clip-path: inset(var(--pad)) }   /* 화면 1 과 같은 규칙 — 격자 바깥은 잘라냄 */
+#workclick { display: block; width: 18.0684vw; height: 3.6146vw; animation: wkblink var(--wkblink, 1.1s) steps(1, end) infinite }
+@keyframes wkblink { 0%, 55% { opacity: 1 } 55.01%, 100% { opacity: 0 } }   /* 화면 1 노트북 화면의 CLICK 과 같은 리듬 (stage1.css s1blink) */
+#work { cursor: pointer }                                                   /* 화면 아무 데나 눌러도 됨 */
+#work.off { cursor: default }
+#work.off #workclick { animation: none; opacity: 0 }                        /* 누르면 깜빡이다 꺼진 채로 안 돌아옴 */

@@ -74,6 +74,11 @@
       <img class="s1-n"  src="/s1/n.svg"  alt="N" width="193.889" height="234.404">
     </div>
   </div>
+  <!-- SCROLL DOWN — 격자 아래 여백 한가운데. 들어오면 아래에서 올라오고, 스크롤 내릴 때까지 둥둥 떠 있는다 (stage1.js scrollHint).
+       무대(#s1stage)는 격자 바깥을 잘라내므로(clip-path) 여기 글자는 무대 밖 형제로 둔다.
+       span 은 올라오는 것, i 는 글자(떠다님), b 는 글자가 눌려서 되는 막대(u 가 채워지는 부분) —
+       한 요소에 여러 개를 걸면 transform 이 서로 덮어쓴다 -->
+  <div id="s1scroll" aria-hidden="true"><span><i>SCROLL DOWN</i><b><u></u></b></span></div>
 </section>
 
 <script type="module" src="/src/main.js"></script>
