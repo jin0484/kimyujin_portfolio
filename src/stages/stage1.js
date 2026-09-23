@@ -147,7 +147,7 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
 
   const mk = () => {                                          // 층 하나 = 조판 하나를 담는 곳
     const el = document.createElement('span');
-    el.className = 'layer';
+    el.className = 'ts';               // .layer 는 base.css 의 화면 층(배경색 있음)과 겹쳐 격자를 덮으므로 다른 이름
     el.append(...units.map((u) => { const e = document.createElement('span'); e.textContent = u; return e; }));
     const els = [...el.children];
     for (const e of els) e.style.display = 'none';

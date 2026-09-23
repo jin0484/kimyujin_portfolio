@@ -53,10 +53,10 @@
   clip-path: inset(0 0 100% 0);   /* 처음엔 가려져 있다가 stage1.js 가 한 줄씩(steps) 내려서 드러냄 */
 }
 /* 단위(단어 또는 글자) 하나 = span 하나. 폭이 바뀔 때마다 stage1.js 가 줄을 다시 나눠 transform 으로 자리를 옮긴다.
-   두 벌(.layer)은 여백 본문 / 바뀐 글 — 글이 갈리는 구간에서만 겹쳐 페이드한다.
+   두 벌(.ts)은 여백 본문 / 바뀐 글 — 글이 갈리는 구간에서만 겹쳐 페이드한다.
    span 마다 will-change 를 걸면 합성 레이어가 단어 수만큼(1000개 넘게) 생겨 되레 끊기므로, 겹치는 "벌" 에만 건다 */
-#s1body .layer { position: absolute; inset: 0; will-change: opacity; contain: layout style paint }
-#s1body .layer span { position: absolute; left: 0; top: 0; white-space: pre }
+#s1body .ts { position: absolute; inset: 0; will-change: opacity; contain: layout style paint }
+#s1body .ts span { position: absolute; left: 0; top: 0; white-space: pre }
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    스왑(YUJIN 크게) 배치와 퇴장은 stage1.js 의 NAME_A/NAME_B·FRAMES 가 인라인으로 */
