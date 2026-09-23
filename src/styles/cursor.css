@@ -1,0 +1,36 @@
+/* ══════════ 커서 — src/cursor.js 가 켠다 ══════════
+   진짜 포인터 자리에 점 하나(그대로 따라감)와, 조금 늦게 따라오는 얇은 원 하나.
+   "마우스 감도를 부드럽게" 가 목적이라 기본 커서는 숨긴다 — 기본 커서가 1:1 로 같이 보이면 부드러움이 하나도 안 느껴진다.
+   점이 정확한 자리를 계속 알려주므로 박스를 끄는 정밀도는 안 떨어진다.
+   --cursorEase: 원이 따라붙는 빠르기(0~1, 클수록 딱 붙음)
+   색은 두 가지 — 평소엔 --cursor(#232323), **어두운 것 위에 오면** --cursorDark(메인 초록)로 --cursorFade 동안 서서히 바뀐다.
+   어두운 곳은 cursor.js 의 DARK 목록으로 정한다(네모박스 사진 · 큰 검정 글자 · 이력 사진 · work 화면).
+   끄고 싶으면 main.js · work.js 의 initCursor() 한 줄만 지우면 된다 */
+:root { --cursorEase: .18; --cursor: #232323; --cursorDark: var(--main); --cursorFade: .35s }
+html.hascursor, html.hascursor * { cursor: none !important }
+
+#cursor { position: fixed; left: 0; top: 0; z-index: 999; pointer-events: none; opacity: 0; transition: opacity .25s }
+#cursor.in { opacity: 1 }
+#cursor i { position: absolute; left: 0; top: 0; width: 0; height: 0; display: block; will-change: transform }
+
+/* 원 — 자리는 JS 가 transform 으로, 크기는 ::before 가 scale 로. 둘을 한 요소에 걸면 서로 덮어쓴다 */
+#cursor .ring::before {
+  content: ''; position: absolute; left: -14px; top: -14px; width: 28px; height: 28px;
+  border: 1px solid var(--cursor); border-radius: 50%; opacity: .75;
+  transition: transform .25s cubic-bezier(.2, .7, .3, 1), opacity .25s, border-color var(--cursorFade);
+}
+#cursor .dot::before {
+  content: ''; position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px;
+  background: var(--cursor); border-radius: 50%;
+  transition: transform .25s cubic-bezier(.2, .7, .3, 1), background-color var(--cursorFade);
+}
+#cursor.hot .ring::before { transform: scale(1.7); opacity: .9 }    /* 누를 수 있는 것 위 */
+#cursor.hot .dot::before { transform: scale(0) }                    /* 원이 커지면 점은 비켜준다 */
+#cursor.down .ring::before { transform: scale(.7); opacity: 1 }     /* 누르는 동안 */
+#cursor.down .dot::before { transform: scale(1.6) }
+
+/* 어두운 것 위 — 색만 서서히 바뀐다 (cursor.js DARK) */
+#cursor.dark .ring::before { border-color: var(--cursorDark) }
+#cursor.dark .dot::before { background: var(--cursorDark) }
+
+@media (pointer: coarse) { #cursor { display: none } }              /* 터치 기기엔 안 띄움 */

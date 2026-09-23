@@ -1,4 +1,5 @@
 /* 스타일 진입점 — 토큰 → 베이스 → 화면 */
 @import './tokens.css';
 @import './base.css';
+@import './cursor.css';
 @import './stage1.css';

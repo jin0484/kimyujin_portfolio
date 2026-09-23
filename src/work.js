@@ -3,6 +3,9 @@
  *  깜빡임이 켜짐/꺼짐만 오가는 steps 애니메이션이라, 꺼지는 것도 페이드 없이 그 리듬 그대로 둔다. */
 import './styles/index.css';
 import './styles/work.css';
+import { initCursor } from './cursor.js';
+
+initCursor();
 
 const work = document.querySelector('#work');
 const off = () => work.classList.add('off');

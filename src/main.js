@@ -4,9 +4,11 @@
 import './styles/index.css';
 
 import { initStage1, refresh as refreshStage1 } from './stages/stage1.js';
+import { initCursor } from './cursor.js';
 
 let rz;
 window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(refreshStage1, 120); });
 
 initStage1();
+initCursor();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshStage1);   // 폰트 로드 후 다시 계측
