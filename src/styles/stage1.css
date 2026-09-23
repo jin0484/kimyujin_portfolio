@@ -15,10 +15,10 @@
 #s1grid .bd { fill: none; stroke: #DFDFDF }
 
 /* 네모박스 — 격자 왼쪽 아래 칸(284 × 236)에 붙어 있음. 크기·등장은 box.js 가 인라인으로.
-   --s1boxIn: 휠로 나타나는 시간(ease-in-out) · --s1boxEase · --s1boxDamp: 놓았을 때 튕김(낮을수록 많이 넘침, 1 = 안 넘침) · --s1boxFreq: 돌아오는 빠르기 */
-#s1stage { --s1boxIn: .6s; --s1boxEase: cubic-bezier(.45, 0, .55, 1); --s1boxDamp: .7; --s1boxFreq: 12; --s1boxHint: .18s }
+   --s1boxIn: 휠로 나타나는 시간(ease-in-out) · --s1boxEase · --s1boxDamp: 힌트가 튕기는 정도(낮을수록 많이 넘침, 1 = 안 넘침). 놓으면 그 크기 그대로 남는다 */
+#s1stage { --s1boxIn: .6s; --s1boxEase: cubic-bezier(.45, 0, .55, 1); --s1boxDamp: .7; --s1boxHint: .18s }
 /* --s1boxHint: 박스가 다 나온 직후 혼자 한 번 숨쉬는 힌트 — **제일 커지기까지** 걸리는 시간(돌아오는 건 이어서 자동).
-   끌 수 있다는 신호라 놓았을 때와 같은 --s1boxDamp 로 튕긴다. 0 이면 안 함 (box.js hintAt) */
+   끌 수 있다는 신호라 --s1boxDamp 로 살짝 튕긴다. 0 이면 안 함 (box.js hintAt) */
 #s1box {
   position: absolute; left: 60px; bottom: 60px; width: 284px; height: 236px; z-index: 1;
   background: #D9D9D9; overflow: hidden; display: none;

@@ -2,9 +2,9 @@
  *
  * 퇴장 시퀀스가 끝난 다음 휠에 격자 왼쪽 아래 칸에서 나타난다 (없음 → 50×50 → 284×236, ease-in-out).
  * 박스를 잡고 끌면 왼쪽 아래는 고정, 오른쪽 위 모서리가 커서를 따라 커진다 (처음 크기가 최소, 격자 끝이 최대).
- * 놓으면 스프링으로 처음 크기로 돌아간다(한 번 살짝 넘쳤다 복귀).
+ * 놓으면 **그 크기 그대로 남는다**(2026-09-23 사용자 요청 — 예전엔 스프링으로 처음 크기로 돌아갔음). 다시 잡아 줄일 수도 있다.
  *
- * 나머지는 전부 박스 크기 하나에서 계산한다. 놓을 땐 그 순간 모습에서 원래 모습으로 박스와 같은 스프링을 걸어 같이 띠용:
+ * 나머지는 전부 박스 크기 하나에서 계산한다:
  *   가로선  — 박스 윗변보다 아래일 수 없음. 밀려 올라가다 서로 겹치면 한 줄로 보이고, 격자 위끝에 닿으면 사라짐
  *   세로 겹선 — 같은 식으로 오른변에 밀려감
  *   초록 글 — 아랫변이 박스 윗변 가로선에 닿으면 그 선을 따라 올라가며 아래부터 잘림 (479 → 0),
@@ -17,6 +17,8 @@
  *
  * 3번째 휠(Figma "3번째 휠" 152:1046, 0.6초): 박스는 왼쪽 아래 기준, 초록 글상자는 오른쪽 위 기준으로 같은 비율로 작아져 사라짐.
  *   글상자 폭이 줄어드는 만큼 글이 다시 조판된다. 휠 올리면 반대로.
+ *   박스를 키워 둔 채였으면 **그 크기에서** 줄어들고, 밀려났던 선·글·노트북은 줄어드는 박스 변을 따라 제자리로 돌아온다
+ *   (휠 올려 박스가 들어갈 때도 같은 식)
  */
 import { $, bezier } from '../utils.js';
 import { BOX_SHOTS } from '../data.js';
@@ -42,8 +44,8 @@ let sy = 1, scale = 1;                      // 세로 배율(무대 높이 / 108
 let w = W0, t = T0;                         // 박스 오른변 x · 윗변 y (격자 좌표)
 let shown = false, u = 0, uTo = 0;          // u: 등장 진행(이징 전, 0~1)
 let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록 글이 사라지는 진행(이징 전, 0~1)
-let drag = null, spring = null, raf = 0, lastT = 0;
-let ease = null, inMs = 600, damp = 0.7, freq = 12;
+let drag = null, raf = 0, lastT = 0;
+let ease = null, inMs = 600, damp = 0.7;
 let hintT0 = 0, hintMs = 180;               // 등장 직후 한 번 크게 숨쉬는 힌트 — 제일 커지기까지 걸리는 시간
 const HINT_W = 30, HINT_T = 26;             // 힌트로 제일 커지는 양(px) — 격자 선 하나가 밀릴 만큼만
 let gms = 0, gTo = 0;                       // 마지막 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
@@ -59,7 +61,6 @@ function readVars() {
   ease = m ? bezier(...m[1].split(',').map(Number)) : bezier(0.45, 0, 0.55, 1);
   inMs = (parseFloat(css('--s1boxIn')) || 0.6) * 1000;
   damp = clamp(parseFloat(css('--s1boxDamp')) || 0.7, 0.05, 1);
-  freq = parseFloat(css('--s1boxFreq')) || 12;
   const m2 = /cubic-bezier\(([^)]+)\)/.exec(css('--s1lineEase'));
   lineEase = m2 ? bezier(...m2[1].split(',').map(Number)) : bezier(0.45, 0, 0.55, 1);
   outMs = Math.max(1, (parseFloat(css('--s1lineOut')) || 0.2) * 1000);
@@ -69,7 +70,7 @@ function readVars() {
 }
 
 /* 힌트 — 0 에서 속도를 받아 나갔다 돌아오는 스프링(임펄스 응답). 0 → 1(제일 커짐) → 0, 반대로 살짝 넘쳤다 가라앉는다.
- *  놓을 때 쓰는 springAt 은 "1 에서 0 으로" 라 시작이 정지 상태다 — 커지는 걸 따로 붙이면 꼭대기에서 멈칫한다.
+ *  (예전에 놓을 때 쓰던 스프링은 시작이 정지 상태라, 커지는 걸 따로 붙이면 꼭대기에서 멈칫했다 — 그래서 힌트는 처음부터 속도를 줌)
  *  제일 커지는 시각이 hintMs 가 되도록 振동수를 거꾸로 뽑고, 그때 값이 1 이 되게 나눠 맞춘다 (넘치는 정도는 --s1boxDamp 그대로) */
 function hintAt(ms) {
   const z = clamp(damp, 0.05, 0.99), r = Math.sqrt(1 - z * z);
@@ -138,39 +139,36 @@ function placeShot(bw, bh) {
   shotEl.style.left = (bw - iw) * shotPos[0] + 'px'; shotEl.style.top = (bh - ih) * shotPos[1] + 'px';
 }
 
+// 박스 크기(화면 px) → 그 박스가 밀어내는 선·글·노트북 (박스가 기본 칸보다 작을 땐 아무것도 안 밀림)
+const pushedBy = (bw, bh) => derive(Math.max(W0, bw), Math.min(T0, GH - bh / sy));
+const big = () => w !== W0 || t !== T0;
+
 function render() {
   const a = ease ? ease(u) : u;
-  if (a < 1) {                                               // 등장 중: 0 → 50×50 → 기본 칸. 선·글·노트북은 그대로
-    const e = a * 2;
-    const bw = e <= 1 ? POP * e : lerp(POP, W0, e - 1), bh = e <= 1 ? POP * e : lerp(POP, (GH - T0) * sy, e - 1);
+  if (a < 1) {                                               // 등장 중: 0 → 50×50 → 지금 크기(보통 기본 칸). 휠 올려 들어갈 때도 이 길을 거꾸로
+    const e = a * 2, H = (GH - t) * sy;
+    const bw = e <= 1 ? POP * e : lerp(POP, w, e - 1), bh = e <= 1 ? POP * e : lerp(POP, H, e - 1);
     box.style.width = bw + 'px'; box.style.height = bh + 'px'; placeShot(bw, bh);
-    paintGrid(derive(W0, T0));
+    if (big()) paint(pushedBy(bw, bh));                      // 키워 둔 채 들어가면 밀렸던 것들이 박스 변을 따라 돌아옴
+    else paintGrid(derive(W0, T0));
     return;
   }
   const c = ease ? ease(v) : v;
   if (c > 0) {                                               // 3번째 휠 (Figma 152:1046): 박스는 왼쪽 아래, 초록 글은 오른쪽 위 모서리를 기준으로 비율대로 작아져 사라짐
-    const k = 1 - c, bw = W0 * k, bh = (GH - T0) * sy * k;
+    const k = 1 - c, bw = w * k, bh = (GH - t) * sy * k;     // 지금 크기에서 줄어듦 (기본 칸이면 예전과 똑같음)
     box.style.width = bw + 'px'; box.style.height = bh + 'px'; placeShot(bw, bh);
-    paintGrid(derive(W0, T0));
-    laptop.style.transform = laptop.style.visibility = '';
-    const tw = (TEXT_R - TEXT_L) * k;                        // 글상자 폭이 줄어드는 만큼 줄을 다시 나눔(글자 단위)
-    squeeze(TEXT_R - tw, (TEXT_Y * sy - 1) * k);
+    const d = pushedBy(bw, bh);
+    paintGrid(d);
+    const lk = d[10];
+    laptop.style.transform = Math.abs(lk - 1) > 1e-4 ? 'scale(' + lk + ')' : '';
+    laptop.style.visibility = lk <= 0.001 ? 'hidden' : '';
+    squeeze(TEXT_R - (TEXT_R - d[8]) * k, d[9] * k);         // 글상자 폭이 줄어드는 만큼 줄을 다시 나눔(글자 단위)
     return;
   }
   box.style.width = w + 'px';
   box.style.height = (GH - t) * sy + 'px';
   placeShot(w, (GH - t) * sy);
-  // 놓은 뒤엔 오른쪽 요소들도 박스와 같은 스프링으로 — 놓던 순간의 모습에서 원래 모습으로, 똑같이 살짝 넘쳤다 복귀
-  if (spring) { const R = derive(W0, T0); paint(R.map((r, i) => r + (spring.d0[i] - r) * spring.f)); }
-  else paint(derive(w, t));
-}
-
-// 스프링 (처음 속도 0) — 1 에서 0 으로. damp < 1 이면 0 을 한 번 살짝 지나쳤다 돌아옴
-function springAt(ms) {
-  const x = ms / 1000, om = freq, z = damp;
-  if (z >= 1) return (1 + om * x) * Math.exp(-om * x);
-  const od = om * Math.sqrt(1 - z * z);
-  return Math.exp(-z * om * x) * (Math.cos(od * x) + (z * om / od) * Math.sin(od * x));
+  paint(derive(w, t));
 }
 
 function tick(now) {
@@ -179,8 +177,8 @@ function tick(now) {
   if (u !== uTo) {                                           // 등장 / 퇴장
     u = uTo > u ? Math.min(uTo, u + dt / inMs) : Math.max(uTo, u - dt / inMs);
     busy = u !== uTo;
-    if (u === 0 && uTo === 0) { shown = false; box.classList.remove('on'); laptop.style.transform = laptop.style.visibility = ''; }
-    if (u === 1 && uTo === 1 && hintMs > 0 && !drag && !spring) hintT0 = now;   // 다 나왔으면 한 번 숨쉬기
+    if (u === 0 && uTo === 0) { shown = false; box.classList.remove('on'); laptop.style.transform = laptop.style.visibility = ''; w = W0; t = T0; }   // 다음에 나올 땐 기본 칸으로
+    if (u === 1 && uTo === 1 && hintMs > 0 && !drag && !big()) hintT0 = now;   // 다 나왔으면 한 번 숨쉬기
   }
   if (v !== vTo) {                                           // 3번째 휠: 사라짐 / 되돌아옴
     v = vTo > v ? Math.min(vTo, v + dt / inMs) : Math.max(vTo, v - dt / inMs);
@@ -196,12 +194,6 @@ function tick(now) {
     const el = now - hintT0, k = hintAt(el);
     w = W0 + HINT_W * k; t = T0 - HINT_T * k;
     if (el > hintMs * 2 && Math.abs(k) < 2e-3) { hintT0 = 0; w = W0; t = T0; }
-    else busy = true;
-  }
-  if (spring) {                                              // 놓은 뒤 복귀
-    const el = now - spring.t0, f = springAt(el);
-    w = W0 + spring.w * f; t = T0 + spring.t * f; spring.f = f;
-    if (el > 300 && Math.abs(f) < 1e-3) { w = W0; t = T0; spring = null; hint(true); }   // 박스는 조금 움직였어도 글·선은 많이 움직였을 수 있어 배율로 끝냄. 제자리로 돌아오면 DRAG ↗ 다시
     else busy = true;
   }
   if (shown) render();
@@ -225,7 +217,7 @@ export function showBox() {
 export const boxCleared = () => vTo === 1;
 export function clearBox() {
   if (!shown || u < 1 || vTo === 1 || drag) return 0;
-  readVars(); spring = null; hintT0 = 0; w = W0; t = T0; hint(false);
+  readVars(); hintT0 = 0; hint(false);                        // 키워 둔 크기(w, t)는 그대로 — 그 크기에서 줄어듦
   vTo = 1; kick();
   return inMs * (1 - v);
 }
@@ -250,7 +242,7 @@ export function unmorphGrid() {
 }
 export function hideBox() {
   if (!shown || uTo === 0 || drag || vTo !== 0 || v > 0) return 0;
-  spring = null; hintT0 = 0; w = W0; t = T0; render();       // 튕기는 중이었으면 제자리로 놓고 들어감
+  hintT0 = 0;                                                // 키워 둔 크기에서 그대로 들어감 (render 의 등장 길을 거꾸로)
   uTo = 0; kick();
   return inMs * u;
 }
@@ -293,8 +285,8 @@ export function initBox(squeezeBody) {
     if (!shown || uTo !== 1 || u < 1 || v > 0 || vTo !== 0 || e.button !== 0) return;   // 3번째 휠로 사라지는 중엔 못 잡음
     e.preventDefault();
     box.setPointerCapture(e.pointerId);
-    spring = null; hintT0 = 0;                               // 튕기는 중(또는 힌트 중)에 잡으면 그 자리에서 이어서
-    hint(false);                                             // DRAG ↗ 안내 — 잡는 동안은 숨김, 놓고 제자리로 돌아오면 다시
+    hintT0 = 0;                                              // 힌트 중에 잡으면 그 자리에서 이어서
+    hint(false);                                             // DRAG ↗ 안내 — 잡는 동안만 숨김
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t };
     box.classList.add('grab');
   });
@@ -307,8 +299,7 @@ export function initBox(squeezeBody) {
   const up = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null; box.classList.remove('grab');
-    if (w !== W0 || t !== T0) { readVars(); spring = { t0: performance.now(), w: w - W0, t: t - T0, f: 1, d0: derive(w, t) }; kick(); }
-    else hint(true);                                         // 안 끌고 놓았으면 바로
+    hint(true);                                              // 놓은 크기 그대로 남음 — DRAG ↗ 는 바로 다시
   };
   box.addEventListener('pointerup', up);
   box.addEventListener('pointercancel', up);
