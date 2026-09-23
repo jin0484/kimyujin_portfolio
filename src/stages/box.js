@@ -116,7 +116,7 @@ function tick(now) {
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
     w = W0 + spring.w * f; t = T0 + spring.t * f; spring.f = f;
-    if (el > 300 && Math.abs(f) < 1e-3) { w = W0; t = T0; spring = null; }   // 박스는 조금 움직였어도 글·선은 많이 움직였을 수 있어 배율로 끝냄
+    if (el > 300 && Math.abs(f) < 1e-3) { w = W0; t = T0; spring = null; hint(true); }   // 박스는 조금 움직였어도 글·선은 많이 움직였을 수 있어 배율로 끝냄. 제자리로 돌아오면 DRAG ↗ 다시
     else busy = true;
   }
   if (shown) render();
@@ -126,10 +126,11 @@ function kick() { if (!raf) { lastT = performance.now(); raf = requestAnimationF
 
 /* ── 휠에서 부르는 것 (stage1.js) — 걸리는 시간(ms)을 돌려줌, 할 일이 없으면 0 ── */
 export const boxShown = () => shown;
+const hint = (on) => $('#s1drag').classList.toggle('gone', !on);   // DRAG ↗ (Figma 144:891) 보이기/숨기기
 export function boxRefresh() { if (shown) render(); }        // 리사이즈 때 본문(renderBody)이 글상자 높이를 덮어쓴 뒤 다시
 export function showBox() {
   if (shown && uTo === 1) return 0;
-  readVars();
+  readVars(); hint(true);                                     // 다시 나올 때도 DRAG ↗ 보이게
   shown = true; uTo = 1; w = W0; t = T0;
   box.classList.add('on');
   render(); kick();
@@ -162,7 +163,7 @@ export function initBox(squeezeBody) {
     e.preventDefault();
     box.setPointerCapture(e.pointerId);
     spring = null;                                           // 튕기는 중에 다시 잡으면 그 자리에서 이어서
-    $('#s1drag').classList.add('gone');                      // DRAG ↗ 안내 — 한 번 잡으면 다시 안 나옴
+    hint(false);                                             // DRAG ↗ 안내 — 잡는 동안은 숨김, 놓고 제자리로 돌아오면 다시
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t };
     box.classList.add('grab');
   });
@@ -176,6 +177,7 @@ export function initBox(squeezeBody) {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null; box.classList.remove('grab');
     if (w !== W0 || t !== T0) { readVars(); spring = { t0: performance.now(), w: w - W0, t: t - T0, f: 1, d0: derive(w, t) }; kick(); }
+    else hint(true);                                         // 안 끌고 놓았으면 바로
   };
   box.addEventListener('pointerup', up);
   box.addEventListener('pointercancel', up);

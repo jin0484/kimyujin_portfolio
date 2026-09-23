@@ -22,7 +22,7 @@
 }
 #s1box.on { display: block }
 #s1box.grab { cursor: grabbing }
-/* DRAG ↗ — Figma 144:891: 박스 오른쪽 위 안쪽 20px, Chillax Medium 32/26, 화살표 20. 처음 끌면 사라짐 */
+/* DRAG ↗ — Figma 144:891: 박스 오른쪽 위 안쪽 20px, Chillax Medium 32/26, 화살표 20. 잡으면 사라지고, 놓아서 제자리로 돌아오거나 박스가 다시 나오면 다시 보임 */
 #s1drag {
   position: absolute; top: 20px; right: 20px; z-index: 1; display: flex; align-items: center; gap: 10px; pointer-events: none;
   font-family: 'Chillax', var(--grot); font-weight: 500; font-size: 32px; line-height: 26px; letter-spacing: -0.64px; color: #000; white-space: nowrap;
