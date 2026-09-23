@@ -59,7 +59,7 @@
 #s1body .ts span { position: absolute; left: 0; top: 0; white-space: pre }
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
-   스왑(YUJIN 크게) 배치와 퇴장은 stage1.js 의 NAME_A/NAME_B·FRAMES 가 인라인으로 */
+   퇴장(아래로 내려감)은 stage1.js 의 FRAMES 가 인라인 transform 으로 */
 #s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; overflow: hidden; pointer-events: none }   /* 글자 영역이 노트북 클릭을 가리지 않게 */
 /* 창 기준 좌표 = Figma 좌표 − (61, 60) */
 .s1-k  { left: 0px;        bottom: 0.14px; width: 249.138px; height: 370.86px }

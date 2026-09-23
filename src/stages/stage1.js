@@ -5,8 +5,8 @@
  * 격자·본문은 위아래로 늘어나고 KIM YUJIN 은 바닥에 붙는다.
  * 좌표·크기는 Figma 값 그대로 (src/styles/stage1.css). 본문 글은 data.js 의 DUMMY · DUMMY2.
  * 본문: 처음 들어올 때 위에서 아래로 한 줄씩 드러남 (clip-path 를 줄 수만큼의 steps 로 내림).
- * 휠: 첫 휠에 KIM↔YUJIN 스왑(#2 프레임)까지 가서 멈추고, 다음 휠에 되돌아와 멈추고, 세 번째 휠에 퇴장 시퀀스,
- *     네 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄).
+ * 휠: 첫 휠에 퇴장 시퀀스, 두 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄). (Figma "휠 이벤트 정리 표" 135:800)
+ *     KIM↔YUJIN 스왑 정지점 두 개는 2026-09-23 삭제 — 필요하면 커밋 c2ebafb 의 FRAMES·NAME_B 참고
  *
  * 트랙이 둘 — 둘 다 같은 위치(pos)를 보지만 표는 따로다:
  *   FRAMES : KIM YUJIN · 2026 PORTFOLIO · 노트북   (화면1.pdf, 10프레임)
@@ -37,25 +37,20 @@ export function refresh() {                                   // 리사이즈 ·
 
 /* ── 휠 시퀀스 — 화면1.pdf (값은 PDF 에서 그대로 읽음, 1920×1080 기준) ──
  *  name: KIM YUJIN 이 아래로 내려간 거리(px, 378 이상이면 창 밖)   year: 2026 PORTFOLIO 가 창 안에서 올라간 거리(px, 25 이상이면 창 밖)
- *  laptop: bottom   swap: KIM↔YUJIN 배치 (0 = KIM 크게, 1 = YUJIN 크게)
+ *  laptop: bottom
  *  stop: 여기서 멈춤(다음 휠에 이어감)   ms: 이 프레임까지 오는 시간(없으면 --s1step)
  *  프레임은 경유지일 뿐 — 위치(프레임 단위) 하나를 rAF 로 굴리고, 정지점 사이 구간마다 이징을 한 번만 건 뒤
  *  프레임 사이를 선형 보간해서 매 프레임 인라인 스타일로 찍는다. 휠 올리면 같은 위치가 거꾸로 줄어 정방향의 거울로 되감김. */
 const FRAMES = [
-  { name: 0,   year: 0,   laptop: 314,   swap: 0 },                      // 1 기본 — KIM 크게
-  { name: 0,   year: 0,   laptop: 453.6, swap: 1, stop: true, ms: 700 }, // 1' 스왑 — YUJIN 크게 (여기서 멈춤)
-  { name: 0,   year: 0,   laptop: 314,   swap: 0, stop: true, ms: 700 }, // 1'' 다시 KIM 크게 (여기서 멈춤)
-  { name: 78,  year: 35,  laptop: 226,   swap: 0 },   // 2
-  { name: 165, year: 100, laptop: 156,   swap: 0 },   // 3
-  { name: 420, year: 100, laptop: 60,    swap: 0 },   // 4
-  { name: 420, year: 100, laptop: 60,    swap: 0 },   // 5
-  { name: 420, year: 100, laptop: 60,    swap: 0 },   // 6
-  { name: 420, year: 100, laptop: 60,    swap: 0 },   // 7
-  { name: 420, year: 100, laptop: 60,    swap: 0 },   // 8
+  { name: 0,   year: 0,   laptop: 314 },   // 1 기본
+  { name: 78,  year: 35,  laptop: 226 },   // 2
+  { name: 165, year: 100, laptop: 156 },   // 3
+  { name: 420, year: 100, laptop: 60  },   // 4
+  { name: 420, year: 100, laptop: 60  },   // 5
+  { name: 420, year: 100, laptop: 60  },   // 6
+  { name: 420, year: 100, laptop: 60  },   // 7
+  { name: 420, year: 100, laptop: 60  },   // 8
 ];
-// 글자 8개(k i m y u j i2 n)의 두 배치 — #s1name 창 기준 [left, bottom, width, height]. swap 0 = KIM 크게(Figma #1), 1 = YUJIN 크게(#2)
-const NAME_A = [[0, 0.14, 249.138, 370.86], [301.024, 0.18, 56.441, 370.817], [408.425, 0, 482.636, 378], [908, 0, 195, 234], [1152, 0, 187, 234], [1387.601, 0, 84.118, 233.997], [1521, 1, 34, 233], [1603.629, -0.4, 193.889, 234.404]];
-const NAME_B = [[-1, 0, 156, 232], [187, 0, 35, 232], [254, 0, 301, 236], [524, -0.4, 312, 374], [876.482, -0.4, 300, 374], [1215.482, -0.4, 136, 374], [1390.482, 0.6, 55, 373], [1486.482, -0.4, 312, 374]];
 
 /* ── 본문 트랙 — Figma "초록 작은 글자 모션" 섹션(120:1010) 26프레임 ──
  *  글상자 하나가 오른쪽으로 열렸다가, 오른쪽에 붙은 채 왼쪽에서 닫힌다.
@@ -94,7 +89,7 @@ const BODY = [
   [1108,  752,  479, 1, 1, 1],   // #26
   [1273,  587,  479, 1, 1, 1],   // #27 2단으로 좁혀져 멈춤
 ];
-const BODY_FROM = 2, BODY_TO = 9;   // FRAMES 의 이 구간(두 번째 정지점 → 끝) 동안 BODY 26프레임이 흐른다
+const BODY_FROM = 0, BODY_TO = 7;   // FRAMES 의 이 구간(처음 → 끝, 퇴장 전체) 동안 BODY 26프레임이 흐른다
 const H_SEQ = 479;                  // 시퀀스 중 글상자 높이 (Figma). 이 높이를 채우는 만큼만 글을 보여준다
 
 function easeFn(name) {
@@ -282,18 +277,13 @@ function render(q) {                                        // q: --s1stepEase �
   const A = FRAMES[i], B = FRAMES[i + 1];
   year.style.transform = "translateY(" + (-lerp(A.year, B.year, t)) + "px)";
   laptop.style.bottom = lerp(A.laptop, B.laptop, t) + "px";
-  const sw = lerp(A.swap, B.swap, t), ny = lerp(A.name, B.name, t);
-  letters.forEach((e, k) => {                              // 글자: KIM↔YUJIN 배치 보간 + 아래로 내려간 거리
-    const P = NAME_A[k], Q = NAME_B[k];
-    e.style.left = lerp(P[0], Q[0], sw) + "px"; e.style.bottom = lerp(P[1], Q[1], sw) + "px";
-    e.style.width = lerp(P[2], Q[2], sw) + "px"; e.style.height = lerp(P[3], Q[3], sw) + "px";
-    e.style.transform = "translateY(" + ny + "px)";
-  });
+  const ny = lerp(A.name, B.name, t);
+  for (const e of letters) e.style.transform = "translateY(" + ny + "px)";   // 글자: 아래로 내려간 거리 (배치는 CSS)
 }
 function clear() {                                          // 위치 0 — 인라인 지우고 CSS 값으로
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
   body.style.width = ""; year.style.transform = ""; laptop.style.bottom = "";
-  for (const e of letters) e.style.left = e.style.bottom = e.style.width = e.style.height = e.style.transform = "";
+  for (const e of letters) e.style.transform = "";
   renderBody(0);
 }
 const stepMs = () => (parseFloat(getComputedStyle(stage).getPropertyValue("--s1step")) || 0.5) * 1000;
