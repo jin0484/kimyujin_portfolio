@@ -14,6 +14,7 @@
  *   --glassSize         : 링 바깥 지름 = U 폭 × 이만큼   --glassTube: 링 굵기(지름 대비)
  *   --glassTilt         : 눕힌 각도(deg, 클수록 납작)   --glassSpin: 한 번 흔들리는 주기(s)
  *   --glassBend         : 굴절 세기(유리 두께)  --glassRainbow: 테두리 무지개(분산)
+ *   --glassTint         : 유리 왼쪽 끝에 메인 초록이 물드는 정도(0 = 무색, 1 = 메인 색 그대로) — 오른쪽 끝으로 갈수록 투명
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -23,6 +24,7 @@ const DW = 1920, FOV = 20, BACK = 600;   // 배경 판은 링보다 이만큼 �
 const MARGIN = 1.5;                        // 캔버스 네모 = 링 지름 × 이만큼 (기울어 흔들릴 때·굴절로 옆을 끌어올 때 여유)
 
 let renderer, scene, camera, ring, back, hold, bg, bgx, tex, mk, mkx, mtex, cvs;
+const tintU = { uTint: { value: new THREE.Color() }, uCx: { value: 0 }, uD: { value: 1 } };
 let K = {}, lastSig = '', lastPaint = 0, t0 = 0, still = false, side = 0;
 const grid = $('#s1grid'), nameBox = $('#s1name'), body = $('#s1body'), bodyClip = $('#s1bodyclip');
 const U = $('#s1name .s1-u');
@@ -31,8 +33,9 @@ const letters = [...document.querySelectorAll('#s1name img')];
 function knobs() {
   const cs = getComputedStyle($('#s1')), n = (k, d) => { const v = parseFloat(cs.getPropertyValue(k)); return isNaN(v) ? d : v; };
   K = { x: n('--glassX', 0.9075), y: n('--glassY', 0.3), size: n('--glassSize', 0.9), tube: n('--glassTube', 0.26),
-        tilt: n('--glassTilt', 62) * Math.PI / 180, spin: n('--glassSpin', 14), bend: n('--glassBend', 1), rainbow: n('--glassRainbow', 2) };
+        tilt: n('--glassTilt', 62) * Math.PI / 180, spin: n('--glassSpin', 14), bend: n('--glassBend', 1), rainbow: n('--glassRainbow', 2), tint: n('--glassTint', 0.3) };
   K.paper = cs.backgroundColor;
+  K.main = getComputedStyle(document.documentElement).getPropertyValue('--main').trim() || '#C3DCA8';
 }
 
 function build() {                                             // 바깥 지름 1 짜리 링 — 실제 크기는 매 프레임 scale 로
@@ -45,10 +48,18 @@ function build() {                                             // 바깥 지름 
       transmission: 1, ior: 1.5, specularIntensity: 1,
       clearcoat: 1, clearcoatRoughness: 0.04,
     }));
+    // 초록 물들이기 — 화면 왼쪽 끝은 --glassTint 만큼, 오른쪽 끝은 무색으로 그라데이션 (링이 흔들려도 화면 기준 좌우).
+    // 유리 몸통 색(diffuseColor)은 비쳐 보이는 빛에만 곱해지므로 반사광은 그대로 흰색
+    ring.material.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, tintU);
+      sh.fragmentShader = 'uniform vec3 uTint; uniform float uCx, uD;\n' + sh.fragmentShader.replace('#include <color_fragment>',
+        '#include <color_fragment>\n  diffuseColor.rgb *= mix( vec3( 1.0 ), uTint, clamp( 0.5 - ( vWorldPosition.x - uCx ) / uD, 0.0, 1.0 ) );');
+    };
     scene.add(ring);
   } else ring.geometry = geo;
   ring.material.thickness = r * 2 * K.bend;
   ring.material.dispersion = K.rainbow;
+  tintU.uTint.value.set(0xffffff).lerp(new THREE.Color(K.main), K.tint);   // 왼쪽 끝 색 = 흰색과 메인 초록을 --glassTint 만큼 섞은 것
 }
 
 function resize() {
@@ -68,6 +79,9 @@ function setSide(px) {                                         // 캔버스 크�
   renderer.setSize(side, side, false);
   cvs.style.width = cvs.style.height = side + 'px';
   bg.width = bg.height = mk.width = mk.height = Math.round(side * dpr);
+  // GPU 쪽 텍스처는 처음 크기로 한 번 잡히면 그대로라, 캔버스가 커진 뒤엔 올리기가 실패해 배경 사본·가림판이 멈춰 있었다
+  // (호버로 커질 때 굴절된 U 기둥이 덜컹거린 원인) → 크기가 바뀌면 버리고 새 크기로 다시 잡게
+  tex.dispose(); mtex.dispose();
   lastSig = '';
 }
 
@@ -166,6 +180,7 @@ function draw(now) {
   const a = still ? 0 : ((now - t0) / 1000 / K.spin) * Math.PI * 2;
   ring.position.set(cx - innerWidth / 2, innerHeight / 2 - cy, 0);
   ring.scale.setScalar(D);
+  tintU.uCx.value = ring.position.x; tintU.uD.value = D;       // 초록 그라데이션: 링 왼쪽 끝 → 오른쪽 끝
   ring.rotation.set(-K.tilt + Math.sin(a * 0.7 + 1) * 0.08, Math.sin(a) * 0.22, -0.1 + Math.sin(a * 0.5) * 0.05);
   renderer.render(scene, camera);
 }
