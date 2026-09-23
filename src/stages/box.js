@@ -7,7 +7,8 @@
  * 나머지는 전부 박스 크기 하나에서 계산하므로 박스가 돌아오면 같이 돌아온다:
  *   가로선  — 박스 윗변보다 아래일 수 없음. 밀려 올라가다 서로 겹치면 한 줄로 보이고, 격자 위끝에 닿으면 사라짐
  *   세로 겹선 — 같은 식으로 오른변에 밀려감
- *   초록 글 — 아랫변이 480 가로선을 따라 올라가며 아래부터 잘림 (479 → 0)
+ *   초록 글 — 아랫변이 480 가로선을 따라 올라가며 아래부터 잘림 (479 → 0),
+ *             오른변이 다가오면 왼쪽에서 눌려 좁아지고 다시 조판됨 (133:783)
  *   노트북  — 박스 오른변이 노트북 왼끝을 넘으면 오른쪽 아래 기준으로 작아짐 (폭 = 격자 오른끝 − 박스 오른변)
  * 좌표는 Figma 격자(1800 × 960) 기준. 세로는 무대 높이에 맞춰 늘어나므로 그릴 때 sy 를 곱한다.
  */
@@ -22,6 +23,9 @@ const HY = [237, 480, 724];                 // 가로선
 const W0 = 284, T0 = 724, POP = 50;         // 박스 기본 = 왼쪽 아래 칸(폭 284, 윗변 724) · 등장 중간 크기 50×50
 const LAP_W = 307;                          // 노트북 폭 — 오른끝이 격자 오른끝(1800)
 const TEXT_Y = 480, TEXT_H = 479;           // 초록 글이 따라가는 가로선 · 글상자 높이 (stage1.js H_SEQ)
+const TEXT_L = 1273;                        // 초록 글 왼끝(무대 좌표, stage1.js BODY 마지막 프레임)
+const TALL_W0 = 1492, TALL_W1 = 1569;       // 이 박스 폭 사이에서 글상자가 격자 전체 높이로 늘어남 (Figma 133:783 #20)
+let squeeze = () => {};                     // stage1.js 가 넘겨줌 — (왼끝, 높이) 로 본문을 다시 조판
 
 let sy = 1, scale = 1;                      // 세로 배율(무대 높이 / 1080 격자) · 무대 scale(화면 px → 무대 px)
 let w = W0, t = T0;                         // 박스 오른변 x · 윗변 y (격자 좌표)
@@ -69,7 +73,13 @@ function render() {
   const k = clamp((GW - w) / LAP_W, 0, 1);                   // 노트북
   laptop.style.transform = k < 1 ? 'scale(' + k + ')' : '';
   laptop.style.visibility = k <= 0.001 ? 'hidden' : '';
-  bodyClip.style.height = TEXT_H * Math.min(TEXT_Y, t) / TEXT_Y + 'px';   // 초록 글 — 480 선이 올라간 만큼 비율로
+  // 초록 글 — 두 규칙이 같이 걸림 (Figma 132:339 + 133:783)
+  //   옆: 왼끝이 박스 오른변의 겹선 오른선(오른변 + 23)에 밀려 좁아지고 줄을 다시 나눔. 오른끝 1860 고정
+  //   높이: 폭이 박스 1492 → 1569 사이에서 479 → 격자 전체로 늘어남(좁아진 글이 노트북 옆까지 내려옴),
+  //         거기에 480 선이 박스 윗변에 밀려 올라간 비율을 곱함
+  const left = Math.max(TEXT_L, 60 + w + 23);
+  const baseH = lerp(TEXT_H, GH * sy, clamp((w - TALL_W0) / (TALL_W1 - TALL_W0), 0, 1));
+  squeeze(Math.min(left, 1860), baseH * Math.min(TEXT_Y, t) / TEXT_Y);
 }
 
 // 스프링 (처음 속도 0) — 1 에서 0 으로. damp < 1 이면 0 을 한 번 살짝 지나쳤다 돌아옴
@@ -129,7 +139,8 @@ export function boxSizing(stageH, s) {                       // stage1.js sizing
   if (shown) render(); else drawGrid(W0, T0);
 }
 
-export function initBox() {
+export function initBox(squeezeBody) {
+  squeeze = squeezeBody;
   box.addEventListener('pointerdown', (e) => {
     if (!shown || uTo !== 1 || u < 1 || e.button !== 0) return;
     e.preventDefault();

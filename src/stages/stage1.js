@@ -268,6 +268,14 @@ function renderBody(p) {
   tsA.show(w, lastAlign, nVis,      A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
   tsB.show(w, lastAlign, tsB.count, A[1], B[1], ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
+// 네모박스(box.js)가 본문을 밀 때 — 퇴장 끝 상태(바뀐 글, 마지막 줄 오른끝)를 왼끝·높이만 바꿔 다시 조판. 오른끝은 격자 오른선 1860
+function squeezeBody(left, h) {
+  if (!tsB) return;
+  const w = Math.max(0, 1860 - left);
+  bodyClip.style.left = left + 'px'; bodyClip.style.width = w + 'px'; bodyClip.style.height = Math.max(0, h) + 'px';
+  body.style.width = w + 'px';
+  tsB.show(w, 1, tsB.count, w, w, 0, w > 0 ? 1 : 0);
+}
 function render(q) {                                        // q: --s1stepEase 가 적용된 위치(프레임 단위) → 프레임 사이 보간. 본문은 renderBody 가 따로 그린다
   q = Math.min(N, Math.max(0, q));
   const i = Math.min(N - 1, Math.floor(q)), t = q - i;
@@ -333,7 +341,7 @@ function play(d) {
 const LINE = 26, LINE_MS = 38;   // 본문 행간(px) · 한 줄 드러나는 간격(ms)
 export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
-  initBox();
+  initBox(squeezeBody);
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
