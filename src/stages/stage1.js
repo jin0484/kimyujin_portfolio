@@ -20,6 +20,7 @@ import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
+import { syncGlass } from '../glass.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
@@ -443,6 +444,7 @@ function render(q) {                                        // q: --s1stepEase �
     } else e.style.left = e.style.bottom = e.style.width = e.style.height = "";   // KIM 크게 = CSS 그대로
     e.style.transform = "translateY(" + ny + "px)";
   });
+  syncGlass();                                              // U 에 걸린 유리 링을 같은 프레임에 맞춤 (glass.js)
 }
 
 /* ── 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다 ──
@@ -478,6 +480,7 @@ function clear() {                                          // 위치 0 — 인�
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
   body.style.width = ""; year.style.transform = ""; laptop.style.bottom = "";
   for (const e of letters) e.style.transform = "";
+  syncGlass();
   renderBody(0);
 }
 const stepMs = () => (parseFloat(getComputedStyle(stage).getPropertyValue("--s1step")) || 0.5) * 1000;
