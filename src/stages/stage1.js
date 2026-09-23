@@ -475,20 +475,6 @@ export function initStage1() {
   }, 150);
   // 호버 — KIM 글자에 올리면 KIM 크게, YUJIN 글자에 올리면 YUJIN 크게 (첫 화면에서만)
   letters.forEach((im, k) => im.addEventListener('pointerenter', () => { if (atStart()) setSwap(k < 3 ? 0 : 1); }));
-  // 노트북 클릭 → 검정(#0c0c0c)이 오른쪽 아래에서 왼쪽 위로 대각선으로 화면을 채운 뒤 work.html 로 (새 탭·창 열기는 그대로 둠)
-  laptop.addEventListener('click', (e) => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    const wipe = document.createElement('div');
-    wipe.id = 'pagewipe';
-    document.body.append(wipe);
-    const ms = (parseFloat(getComputedStyle(stage).getPropertyValue('--s1wipe')) || 0.7) * 1000;
-    wipe.getBoundingClientRect();                           // 시작 모습을 한 번 계산시켜야 전환이 걸림
-    wipe.classList.add('on');
-    setTimeout(() => { location.href = laptop.href; }, ms);
-  });
-  // 뒤로 가기로 돌아왔을 때(bfcache) 덮개가 남아 있지 않게
-  window.addEventListener('pageshow', () => { document.querySelector('#pagewipe')?.remove(); });
   // 휠 — 캡처 단계에서 받아서 어떤 요소 위에 있든 잡음. deltaMode 가 줄/페이지 단위인 환경(Firefox 등)도 방향만 보면 되므로 그대로
   window.addEventListener('wheel', (e) => { if (e.deltaY !== 0) play(e.deltaY > 0 ? 1 : -1); }, { passive: true, capture: true });
   // 키보드 — ↓/PageDown/Space 앞으로, ↑/PageUp 뒤로

@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=Gothic+A1:wght@300;400;500;700;900&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=chillax@500&display=swap">   <!-- 네모박스 DRAG 글자 (Figma: Chillax Medium) -->
+  <!-- 페이지 전환 — 노트북 클릭 때 work.html 이 아래에서 올라옴(연출은 work.html head). 양쪽 다 켜야 걸림.
+       이 페이지로 돌아올 때(뒤로 가기)는 연출 없이 바로 -->
+  <style>
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  </style>
 </head>
 <body>
 
