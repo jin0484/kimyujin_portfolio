@@ -257,10 +257,12 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     pair[0].el.style.display = '';
     // 0.5/0.5 로 겹치면 한가운데서 글자 밀도가 꺼지므로 밝기 합이 일정하도록 √ 로 겹친다
     pair[0].el.style.opacity = alpha * (ft > 0 ? Math.sqrt(1 - ft) : 1);
+    pair[0].el.style.pointerEvents = +pair[0].el.style.opacity < 0.5 ? 'none' : '';   // 거의 안 보이는 층이 호버를 가로채지 않게
     if (ft > 0) {
       place(pair[1], structB, boxW, lastAlign, nVis);
       pair[1].el.style.display = '';
       pair[1].el.style.opacity = alpha * Math.sqrt(ft);
+      pair[1].el.style.pointerEvents = +pair[1].el.style.opacity < 0.5 ? 'none' : '';
     } else pair[1].el.style.display = 'none';
   }
   return { els: [pair[0].el, pair[1].el], count: units.length, fitCount, show, flow, showFlow };
@@ -270,7 +272,8 @@ let tsA = null, tsB = null, nAll = 0, nSeq = 0;
 function buildBody() {                                        // 문단 → 단위 span 두 벌 (처음 한 번)
   if (tsA) return;
   tsA = typeset(DUMMY.repeat(6), 'word');                     // 여백 본문 — 띄어쓰기 단위
-  tsB = typeset(DUMMY2, 'char');                              // 바뀐 글 — 글자 단위(띄어쓰기가 있어도 됨, 단어 중간에서도 줄이 바뀜)
+  tsB = typeset(DUMMY2, 'word');                              // 바뀐 글 — 단어 단위(단어마다 span 이라 호버하면 단어째 초록 배경). 띄어쓰기 없는 글로 바꾸면 'char'
+  tsB.els.forEach((el) => el.classList.add('hv'));
   body.textContent = '';
   body.append(...tsA.els, ...tsB.els);
   const lay = () => { measureFill(); renderBody(pos); };
@@ -349,7 +352,7 @@ function kimRows() {
   return rows;
 }
 
-let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, bodyEase = null, lockUntil = 0, wrapFade = 0.35;   // pos: 프레임 단위 위치 0 ~ n
+let pos = 0, dir = 0, raf = 0, lastT = 0, fullH = 0, ease = null, bodyEase = null, lockUntil = 0, wrapFade = 0.35, reflow = true;   // pos: 프레임 단위 위치 0 ~ n
 const N = FRAMES.length - 1;
 const STOPS = [0, ...FRAMES.map((f, i) => (f.stop ? i : -1)).filter((i) => i > 0), N];   // 정지점들 (양 끝 포함)
 
@@ -369,12 +372,14 @@ function renderBody(p) {
   // 높이를 아직 못 쟀는데 격자 전체 높이(null)가 섞인 구간이면 인라인을 비워 CSS(calc)에 맡긴다 — 0px 을 써넣어 본문이 통째로 사라지는 걸 막는다
   bodyClip.style.height = fullH > 0 || (A[2] != null && B[2] != null) ? BC[2](i, t) + 'px' : '';
   body.style.width = w + 'px';
-  // 구간의 앞부분은 줄 구조를 그대로 둔 채 폭만 벌어지고(단어가 줄을 안 건넘), 끝 wrapFade 만큼에서 다음 구조로 갈아낀다
-  const ft = t <= 1 - wrapFade ? 0 : (t - (1 - wrapFade)) / wrapFade;
+  // --s1reflow 1(기본): 매 프레임 지금 폭으로 다시 조판 — 단어가 폭을 따라 밀리고, 모자라면 다음 줄로 넘어감(페이드 없음).
+  // 0: 예전 방식 — 구간 안에선 줄 구조를 고정한 채 폭만 벌어지고, 끝 wrapFade 만큼에서 다음 구조로 겹쳐 페이드
+  const ft = reflow ? 0 : t <= 1 - wrapFade ? 0 : (t - (1 - wrapFade)) / wrapFade;
+  const sA = reflow ? w : A[1], sB = reflow ? w : B[1];
   const F = i === 0 ? kimFlow() : null;                      // 첫 구간(폭 585 그대로)까지는 글자를 피해 흐르는 조판 — 글자가 움직이면 매 프레임 다시 흘림
   if (F) tsA.showFlow(F, lerp(F.count, nSeq, cl(BC[5](i, t))));
-  else tsA.show(w, lastAlign, nVis, A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
-  tsB.show(w, lastAlign, tsB.count, A[1], B[1], ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
+  else tsA.show(w, lastAlign, nVis, sA, sB, ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
+  tsB.show(w, lastAlign, tsB.count, sA, sB, ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
 // 네모박스(box.js)가 본문을 밀 때 — 퇴장 끝 상태(바뀐 글, 마지막 줄 오른끝)를 왼끝·높이만 바꿔 다시 조판. 오른끝은 격자 오른선 1860
 function squeezeBody(left, h) {
@@ -464,6 +469,8 @@ function play(d) {
     bodyEase = easeFn('--s1bodyEase');                      // 초록 본문 — 양끝 더 느리게, 가운데 더 빠르게
     const f = parseFloat(getComputedStyle(stage).getPropertyValue('--s1wrap'));   // 구간 중 줄 구조를 갈아끼우는 비율
     wrapFade = Math.min(0.9, Math.max(0.05, isNaN(f) ? 0.35 : f));
+    const rf = parseFloat(getComputedStyle(stage).getPropertyValue('--s1reflow'));
+    reflow = isNaN(rf) ? true : rf >= 0.5;
   }
   dir = d;
   if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
