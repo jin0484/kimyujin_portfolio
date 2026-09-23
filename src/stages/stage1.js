@@ -20,7 +20,7 @@ import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed } from './box.js';
-import { aboutSizing, showAbout, hideAbout, aboutShown } from './about.js';
+import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
 const stage = $('#s1stage'), body = $('#s1body'), bodyClip = $('#s1bodyclip'),
       year = $('#s1year'), laptop = $('#s1laptop'), letters = [...stage.querySelectorAll('#s1name img')];
@@ -461,7 +461,7 @@ function play(d) {
   if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js).
                                                              // 휠을 올리면 한 단계씩 되돌아가고, 다 되돌아간 뒤 그다음 휠에 퇴장이 되감김
     const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : !gridMorphed() ? morphGrid() : showAbout())
-                     : (aboutShown() ? hideAbout() : gridMorphed() ? unmorphGrid() : boxCleared() ? unclearBox() : hideBox());
+                     : (cvShown() ? closeCv() : aboutShown() ? hideAbout() : gridMorphed() ? unmorphGrid() : boxCleared() ? unclearBox() : hideBox());
     if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
     return;
   }
@@ -484,6 +484,7 @@ const LINE = 26, LINE_MS = 38;   // 본문 행간(px) · 한 줄 드러나는 �
 export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
   initBox(squeezeBody);
+  initAbout();                                                // ABOUT ME 클릭 → 이력 (about.js)
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);

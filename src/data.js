@@ -25,3 +25,30 @@ export const BOX_SHOTS = [
   { src: '/projects/blink.jpg',        pos: '55% 60%' },   // 블링크
   { src: '/projects/kooksoondang.jpg', pos: '80% 50%', ink: '#0c0c0c' },   // KOOKSOONDANG (Figma 6)
 ];
+
+/* ══════════ 화면 1 ABOUT ME — 클릭하면 나오는 이력 (Figma "클릭 이벤트" 162:1968) ══════════
+ *  ABOUT 의 글자 A·B·O·U·T 가 하나씩 지워지고 그 자리에 아래 다섯 덩이가 차례로 그려진다 (about.js).
+ *  자리·크기는 about.js CV_AT 가 Figma 좌표로 갖고 있고, 여기는 내용만. 줄을 더하거나 빼도 알아서 그려짐.
+ *  skills 의 두 번째 값은 막대 길이(183 이 꽉 참) */
+export const CV = {
+  name: ['김유진', 'KIM YU JIN'],
+  info: ['UI/UX Designer'],
+  education: [
+    ['2023. 02', '송현고등학교 졸업'],
+    ['2023. 03', '인덕대 시각디자인학과 입학'],
+    ['2026. 08', '인덕대 시각디자인학과 졸업'],
+    ['2026. 10', '이젠 아카데미 수료'],
+  ],
+  activities: [
+    ['2024.', '리:그린 수락산 에코 디자인 페스티벌 참가'],
+    ['2025.', '인덕대 시각디자인학과 3학년 과대'],
+    ['2025.', '인덕대 시각디자인학과 졸업 전시 무빙포스터 제작'],
+    ['2025.', '2025 커뮤니케이션 디자인 국제 공모전 입선'],
+    ['2026.', '이젠 아카데미 비주얼 크래프트, 인터렉션 디자인 부문 최우수상'],
+  ],
+  skills: [
+    ['Photoshop', 103], ['Illustrator', 162], ['After Effects', 162],
+    ['Figma', 183], ['HTML / CSS', 117], ['React', 94],
+  ],
+  photo: '/s1/yujin.png',
+};
