@@ -10,7 +10,7 @@
  *   글자 그림은 네모 영역이 기준이라 획 사이 빈 곳에서도 초록이 되는데, 그게 덜 어색하다.
  * 동작 줄이기(prefers-reduced-motion)를 켠 사람에겐 지연 없이 딱 붙게 한다.
  */
-const HOT = 'a, button, [role="button"], #s1box, #s1name img, #s1body .ts.hv span, #work';
+const HOT = 'a, button, [role="button"], #s1box, #s1name img, #s1body .ts.hv span, #work';   // + 유리 링 위(glass.js 가 html.glasshot 을 켬)
 const DARK = '#s1box, #s1name img, #s1about img, #s1cv img, #s1laptop .screen, #work';
 
 export function initCursor() {
@@ -43,7 +43,7 @@ export function initCursor() {
     put(dot, tx, ty);                                           // 점은 지연 없이
     if (first) { first = false; rx = tx; ry = ty; put(ring, rx, ry); el.classList.add('in'); }
     const t = e.target.closest ? e.target : null;
-    el.classList.toggle('hot', !!(t && t.closest(HOT)));
+    el.classList.toggle('hot', !!(t && t.closest(HOT)) || document.documentElement.classList.contains('glasshot'));
     el.classList.toggle('dark', !!(t && t.closest(DARK)));
     if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
   }, { passive: true });

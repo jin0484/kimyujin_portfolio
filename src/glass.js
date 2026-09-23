@@ -10,7 +10,7 @@
  * 링은 U 상자에 붙어 다닌다 — 호버로 YUJIN 이 커지면 같이 커지고, 휠 퇴장 때 같이 내려간다.
  *
  * 만질 값(#s1 의 CSS 변수, stage1.css):
- *   --glassX · --glassY : 링 중심 — U 상자 안 비율(0 = 왼쪽/위, 1 = 오른쪽/아래). 오른쪽 기둥 가운데 = .9075
+ *   --glassY            : 처음 걸린 높이 — 오른쪽 기둥에서 U 높이 대비(0 = 위). 잡고 끌면 U 획을 따라 움직임(아래 PATH)
  *   --glassSize         : 링 바깥 지름 = U 폭 × 이만큼   --glassTube: 링 굵기(지름 대비)
  *   --glassTilt         : 눕힌 각도(deg, 클수록 납작)   --glassSpin: 한 번 흔들리는 주기(s)
  *   --glassBend         : 굴절 세기(유리 두께)  --glassRainbow: 테두리 무지개(분산)
@@ -33,7 +33,7 @@ const letters = [...document.querySelectorAll('#s1name img')];
 
 function knobs() {
   const cs = getComputedStyle($('#s1')), n = (k, d) => { const v = parseFloat(cs.getPropertyValue(k)); return isNaN(v) ? d : v; };
-  K = { x: n('--glassX', 0.9075), y: n('--glassY', 0.3), size: n('--glassSize', 0.9), tube: n('--glassTube', 0.26),
+  K = { y: n('--glassY', 0.3), size: n('--glassSize', 0.9), tube: n('--glassTube', 0.26),
         tilt: n('--glassTilt', 62) * Math.PI / 180, spin: n('--glassSpin', 14), bend: n('--glassBend', 1), rainbow: n('--glassRainbow', 2), tint: n('--glassTint', 0.3),
         push: n('--glassPush', 2), swingHz: n('--glassSwingHz', 1.6), swingDamp: n('--glassSwingDamp', 0.12) };
   K.paper = cs.backgroundColor;
@@ -154,9 +154,17 @@ export function syncGlass() { if (renderer && cvs.isConnected) draw(performance.
 function draw(now) {
   const s = innerWidth / DW, u = U.getBoundingClientRect();
   const D = u.width * K.size;                                  // 링 바깥 지름(px)
-  const cx = u.left + u.width * K.x, cy = u.top + u.height * K.y;
+  if (at < 0) at = startAt();
+  if (drag) at = nearest(ptr.x - drag.ox, ptr.y - drag.oy, u, at);   // 잡고 있으면 포인터에 가장 가까운 U 획 위 자리로
+  const P = pathAt(at);
+  const cx = u.left + u.width * P.x, cy = u.top + u.height * P.y;
+  if (drag && !still && ringC.x) {                             // 끌려가는 동안 뒤로 살짝 젖혀짐 (건들 때와 같은 스프링)
+    const g = 0.015 * K.push;
+    sw.vy += (cx - ringC.x) * g; sw.vx += (cy - ringC.y) * g;
+  }
+  ringC.x = cx; ringC.y = cy;
   const floor = innerHeight - 60 * s;                          // 격자 아랫선
-  if (cy - D / 2 > floor || !D) { cvs.style.visibility = 'hidden'; return; }   // 퇴장으로 다 내려갔으면 쉼
+  if (cy - D / 2 > floor || !D) { cvs.style.visibility = 'hidden'; setOver(false); return; }   // 퇴장으로 다 내려갔으면 쉼
   cvs.style.visibility = '';
   setSide(D * MARGIN);
 
@@ -187,9 +195,14 @@ function draw(now) {
   ring.scale.setScalar(D);
   tintU.uCx.value = ring.position.x; tintU.uD.value = D;       // 초록 그라데이션: 링 왼쪽 끝 → 오른쪽 끝
   const base = [-K.tilt + Math.sin(a * 0.7 + 1) * 0.08, Math.sin(a) * 0.22, -0.1 + Math.sin(a * 0.5) * 0.05];
-  ring.rotation.set(base[0] + sw.x, base[1] + sw.y, base[2] + sw.z);
-  if (!still) poke(now, x0, y0);
-  ring.rotation.set(base[0] + sw.x, base[1] + sw.y, base[2] + sw.z);
+  const orient = () => {                                       // 흔들림 + 획 방향(phi)만큼 화면 축으로 돌림 — 아래 곡선에선 옆으로 섬
+    ring.rotation.set(base[0] + sw.x, base[1] + sw.y, base[2] + sw.z);
+    ring.quaternion.premultiply(qz.setFromAxisAngle(Z, P.phi));
+  };
+  orient();
+  touch(x0, y0);
+  if (!still) swing(now);
+  orient();
   renderer.render(scene, camera);
 }
 
@@ -200,23 +213,77 @@ function draw(now) {
 const sw = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 }, SW_MAX = 0.4;
 const ptr = { x: -1, y: -1, dx: 0, dy: 0, moved: false }, ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 let hit;                                                       // 부딪힘 판정용 거친 링 (그리진 않음)
-function poke(now, x0, y0) {
+const Z = new THREE.Vector3(0, 0, 1), qz = new THREE.Quaternion();
+
+/* ── 잡고 끌기 — 링이 구슬처럼 U 획(가운데 선)을 따라 미끄러짐 ──
+ *  길: 오른쪽 기둥 위 → 아래 → 바닥 곡선 → 왼쪽 기둥 위. u.svg(187×234) 에서 읽은 획 가운데 —
+ *  기둥 가운데 x 17.28 · 169.72, 곡선은 가운데 93.5 · 130.1 에 가로 76.2 · 세로 87.2 인 반타원(바깥·안쪽 곡선의 가운데).
+ *  양쪽 기둥 꼭대기 28 에서 멈춤(링이 빠지지 않게). phi 는 획이 돈 각도 — 링도 그만큼 돌아서 곡선에선 옆으로 선다.
+ *  포인터에서 제일 가까운 자리를 **지금 자리에서 이어지게** 찾는다(언덕 내려가기) — 두 기둥 사이로 건너뛰지 않음 */
+const PATH = (() => {
+  const W = 187, H = 234, top = 28, yb = 130.1, raw = [];
+  for (let i = 0; i <= 40; i++) raw.push([169.723, top + (yb - top) * i / 40]);
+  for (let i = 1; i <= 120; i++) { const t = Math.PI * i / 120; raw.push([93.5 + 76.223 * Math.cos(t), yb + 87.17 * Math.sin(t)]); }
+  for (let i = 1; i <= 40; i++) raw.push([17.277, yb - (yb - top) * i / 40]);
+  let a0 = 0, prev = 0;
+  return raw.map(([x, y], i) => {
+    const [px, py] = raw[Math.max(0, i - 1)], [nx, ny] = raw[Math.min(raw.length - 1, i + 1)];
+    let a = Math.atan2(-(ny - py), nx - px);                   // 화면 위쪽이 + 인 각도
+    if (i === 0) a0 = prev = a;
+    while (a - prev > Math.PI) a -= 2 * Math.PI;
+    while (a - prev < -Math.PI) a += 2 * Math.PI;
+    prev = a;
+    return { x: x / W, y: y / H, phi: a - a0 };
+  });
+})();
+let at = -1, drag = null, over = false;                        // at: PATH 위 자리(소수 인덱스)
+const ringC = { x: 0, y: 0 };
+const startAt = () => Math.max(0, Math.min(40, (K.y * 234 - 28) / (130.1 - 28) * 40));   // --glassY 높이의 오른쪽 기둥
+function pathAt(f) {
+  const i = Math.min(PATH.length - 2, Math.max(0, Math.floor(f))), t = Math.min(1, Math.max(0, f - i)), A = PATH[i], B = PATH[i + 1];
+  return { x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t, phi: A.phi + (B.phi - A.phi) * t };
+}
+function nearest(px, py, u, f) {
+  const seg = (i) => {
+    const ax = u.left + PATH[i].x * u.width, ay = u.top + PATH[i].y * u.height;
+    const dx = u.left + PATH[i + 1].x * u.width - ax, dy = u.top + PATH[i + 1].y * u.height - ay;
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const ex = ax + dx * t - px, ey = ay + dy * t - py;
+    return { d: ex * ex + ey * ey, t };
+  };
+  let i = Math.min(PATH.length - 2, Math.max(0, Math.floor(f))), cur = seg(i);
+  for (;;) {
+    if (i > 0) { const q = seg(i - 1); if (q.d < cur.d) { i--; cur = q; continue; } }
+    if (i < PATH.length - 2) { const q = seg(i + 1); if (q.d < cur.d) { i++; cur = q; continue; } }
+    break;
+  }
+  return i + cur.t;
+}
+function touch(x0, y0) {                                       // 포인터가 링 위에 있나 — 건들면 밀고, 커서는 잡을 수 있는 모양으로
+  if (!ptr.moved) return;
+  ptr.moved = false;
+  ndc.set((ptr.x - x0) / side * 2 - 1, -((ptr.y - y0) / side * 2 - 1));
+  let on = false;
+  if (Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1) {
+    ring.updateMatrixWorld();
+    hit.matrixWorld.copy(ring.matrixWorld);
+    ray.setFromCamera(ndc, camera);
+    on = ray.intersectObject(hit).length > 0;
+  }
+  if (on && !drag && !still) {
+    const g = 0.03 * K.push;                                   // px 당 각속도(rad/s)
+    sw.vy += ptr.dx * g; sw.vx += ptr.dy * g; sw.vz -= ptr.dx * g * 0.4;
+  }
+  ptr.dx = ptr.dy = 0;
+  setOver(on);
+}
+function setOver(on) {
+  over = on;
+  document.documentElement.classList.toggle('glasshot', on || !!drag);   // cursor.js 가 보고 원을 키움
+}
+function swing(now) {
   const dt = Math.min(0.05, Math.max(0, (now - sw.t) / 1000)); // rAF 시각이 앞 호출보다 과거일 수 있어 0 밑은 자름
   sw.t = now;
-  if (ptr.moved) {
-    ptr.moved = false;
-    ndc.set((ptr.x - x0) / side * 2 - 1, -((ptr.y - y0) / side * 2 - 1));
-    if (Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1) {
-      ring.updateMatrixWorld();
-      hit.matrixWorld.copy(ring.matrixWorld);
-      ray.setFromCamera(ndc, camera);
-      if (ray.intersectObject(hit).length) {
-        const g = 0.03 * K.push;                               // px 당 각속도(rad/s)
-        sw.vy += ptr.dx * g; sw.vx += ptr.dy * g; sw.vz -= ptr.dx * g * 0.4;
-      }
-    }
-    ptr.dx = ptr.dy = 0;
-  }
   const w = 2 * Math.PI * K.swingHz, z = K.swingDamp;
   for (const [p, v] of [['x', 'vx'], ['y', 'vy'], ['z', 'vz']]) {
     sw[v] = Math.max(-6, Math.min(6, sw[v]));
@@ -259,6 +326,15 @@ export function initGlass() {
     if (ptr.x >= 0) { ptr.dx += e.clientX - ptr.x; ptr.dy += e.clientY - ptr.y; }
     ptr.x = e.clientX; ptr.y = e.clientY; ptr.moved = true;
   }, { passive: true });
+  addEventListener('pointerdown', (e) => {                    // 링 위에서 누르면 잡음 — 잡은 자리와 링 가운데의 차이는 유지
+    if (!over || e.button !== 0) return;
+    drag = { ox: e.clientX - ringC.x, oy: e.clientY - ringC.y };
+    setOver(true);
+    e.preventDefault();                                        // 글자 선택 · 밑에 깔린 U 그림 끌기 막음
+  }, { capture: true });
+  const drop = () => { if (drag) { drag = null; setOver(over); } };
+  addEventListener('pointerup', drop);
+  addEventListener('pointercancel', drop);
   resize();
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resize, 120); });
   t0 = performance.now();
