@@ -180,6 +180,8 @@
 /* ── 유리 링 (시안, src/glass.js) — U 오른쪽 기둥에 걸려 천천히 흔들리며 뒤 글자를 굴절시킴 ──
    --glassX · --glassY: 링 중심 = U 상자 안 비율(오른쪽 기둥 가운데 .9075) · --glassSize: 바깥 지름 = U 폭 × 이만큼 · --glassTube: 굵기(지름 대비)
    --glassTilt: 기울기 · --glassSpin: 한 번 흔들리는 주기(s) · --glassBend: 굴절 세기(1 = 링 굵기만큼 두께) · --glassRainbow: 테두리 무지개(0 = 없음)
-   --glassTint: 유리 왼쪽 끝에 메인 초록이 물드는 정도(0 = 무색, .3 = 티 날 듯 말 듯, 1 = 메인 색 그대로) — 오른쪽 끝으로 갈수록 투명 */
-#s1 { --glassX: .9075; --glassY: .3; --glassSize: .9; --glassTube: .26; --glassTilt: 62; --glassSpin: 14; --glassBend: 1; --glassRainbow: 2; --glassTint: .3 }
+   --glassTint: 유리 왼쪽 끝에 메인 초록이 물드는 정도(0 = 무색, .3 = 티 날 듯 말 듯, 1 = 메인 색 그대로) — 오른쪽 끝으로 갈수록 투명
+   --glassPush · --glassSwingHz · --glassSwingDamp: 마우스로 건들면 흔들림 — 미는 세기 · 출렁이는 빠르기(1초에 몇 번) · 감쇠(1 = 안 넘침, 낮을수록 오래 출렁) */
+#s1 { --glassX: .9075; --glassY: .3; --glassSize: .9; --glassTube: .26; --glassTilt: 62; --glassSpin: 14; --glassBend: 1; --glassRainbow: 2; --glassTint: .3;
+      --glassPush: 2; --glassSwingHz: 1.6; --glassSwingDamp: .12 }
 #s1glass { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform }

@@ -14,6 +14,7 @@
  *   --glassSize         : 링 바깥 지름 = U 폭 × 이만큼   --glassTube: 링 굵기(지름 대비)
  *   --glassTilt         : 눕힌 각도(deg, 클수록 납작)   --glassSpin: 한 번 흔들리는 주기(s)
  *   --glassBend         : 굴절 세기(유리 두께)  --glassRainbow: 테두리 무지개(분산)
+ *   --glassPush · --glassSwingHz · --glassSwingDamp : 마우스로 건들면 흔들림 — 미는 세기 · 출렁이는 빠르기 · 감쇠(1 = 안 넘침)
  *   --glassTint         : 유리 왼쪽 끝에 메인 초록이 물드는 정도(0 = 무색, 1 = 메인 색 그대로) — 오른쪽 끝으로 갈수록 투명
  */
 import * as THREE from 'three';
@@ -33,7 +34,8 @@ const letters = [...document.querySelectorAll('#s1name img')];
 function knobs() {
   const cs = getComputedStyle($('#s1')), n = (k, d) => { const v = parseFloat(cs.getPropertyValue(k)); return isNaN(v) ? d : v; };
   K = { x: n('--glassX', 0.9075), y: n('--glassY', 0.3), size: n('--glassSize', 0.9), tube: n('--glassTube', 0.26),
-        tilt: n('--glassTilt', 62) * Math.PI / 180, spin: n('--glassSpin', 14), bend: n('--glassBend', 1), rainbow: n('--glassRainbow', 2), tint: n('--glassTint', 0.3) };
+        tilt: n('--glassTilt', 62) * Math.PI / 180, spin: n('--glassSpin', 14), bend: n('--glassBend', 1), rainbow: n('--glassRainbow', 2), tint: n('--glassTint', 0.3),
+        push: n('--glassPush', 2), swingHz: n('--glassSwingHz', 1.6), swingDamp: n('--glassSwingDamp', 0.12) };
   K.paper = cs.backgroundColor;
   K.main = getComputedStyle(document.documentElement).getPropertyValue('--main').trim() || '#C3DCA8';
 }
@@ -57,6 +59,9 @@ function build() {                                             // 바깥 지름 
     };
     scene.add(ring);
   } else ring.geometry = geo;
+  if (hit) hit.geometry.dispose();
+  hit = new THREE.Mesh(new THREE.TorusGeometry(R, r, 12, 48));   // 부딪힘 판정은 거친 링으로 (그리는 링은 삼각형 5만 개라 무거움)
+  hit.matrixAutoUpdate = false;
   ring.material.thickness = r * 2 * K.bend;
   ring.material.dispersion = K.rainbow;
   tintU.uTint.value.set(0xffffff).lerp(new THREE.Color(K.main), K.tint);   // 왼쪽 끝 색 = 흰색과 메인 초록을 --glassTint 만큼 섞은 것
@@ -181,8 +186,47 @@ function draw(now) {
   ring.position.set(cx - innerWidth / 2, innerHeight / 2 - cy, 0);
   ring.scale.setScalar(D);
   tintU.uCx.value = ring.position.x; tintU.uD.value = D;       // 초록 그라데이션: 링 왼쪽 끝 → 오른쪽 끝
-  ring.rotation.set(-K.tilt + Math.sin(a * 0.7 + 1) * 0.08, Math.sin(a) * 0.22, -0.1 + Math.sin(a * 0.5) * 0.05);
+  const base = [-K.tilt + Math.sin(a * 0.7 + 1) * 0.08, Math.sin(a) * 0.22, -0.1 + Math.sin(a * 0.5) * 0.05];
+  ring.rotation.set(base[0] + sw.x, base[1] + sw.y, base[2] + sw.z);
+  if (!still) poke(now, x0, y0);
+  ring.rotation.set(base[0] + sw.x, base[1] + sw.y, base[2] + sw.z);
   renderer.render(scene, camera);
+}
+
+/* ── 건들면 흔들림 — 마우스가 링을 스치면 스친 방향으로 밀려 기둥에 걸린 채 출렁이다 멈춤 ──
+ *  좌우로 스치면 기둥을 축으로 돌듯(y), 위아래로 스치면 앞뒤로 까딱(x). 링 위에 있는 동안 움직인 만큼 계속 밀림.
+ *  네모박스·호버 스왑과 같은 감쇠 스프링 — --glassSwingHz: 출렁이는 빠르기 · --glassSwingDamp: 1 = 안 넘침, 낮을수록 오래 출렁
+ *  --glassPush: 미는 세기. 링 구멍보다 크게 돌면 기둥을 뚫는 것처럼 보여서 각도는 SW_MAX 에서 부드럽게 막음 */
+const sw = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 }, SW_MAX = 0.4;
+const ptr = { x: -1, y: -1, dx: 0, dy: 0, moved: false }, ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let hit;                                                       // 부딪힘 판정용 거친 링 (그리진 않음)
+function poke(now, x0, y0) {
+  const dt = Math.min(0.05, Math.max(0, (now - sw.t) / 1000)); // rAF 시각이 앞 호출보다 과거일 수 있어 0 밑은 자름
+  sw.t = now;
+  if (ptr.moved) {
+    ptr.moved = false;
+    ndc.set((ptr.x - x0) / side * 2 - 1, -((ptr.y - y0) / side * 2 - 1));
+    if (Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1) {
+      ring.updateMatrixWorld();
+      hit.matrixWorld.copy(ring.matrixWorld);
+      ray.setFromCamera(ndc, camera);
+      if (ray.intersectObject(hit).length) {
+        const g = 0.03 * K.push;                               // px 당 각속도(rad/s)
+        sw.vy += ptr.dx * g; sw.vx += ptr.dy * g; sw.vz -= ptr.dx * g * 0.4;
+      }
+    }
+    ptr.dx = ptr.dy = 0;
+  }
+  const w = 2 * Math.PI * K.swingHz, z = K.swingDamp;
+  for (const [p, v] of [['x', 'vx'], ['y', 'vy'], ['z', 'vz']]) {
+    sw[v] = Math.max(-6, Math.min(6, sw[v]));
+    for (let i = 0; i < 4; i++) {                              // 잘게 나눠 적분 (프레임이 튀어도 안 터지게)
+      const h = dt / 4;
+      sw[v] += (-w * w * sw[p] - 2 * z * w * sw[v]) * h;
+      sw[p] += sw[v] * h;
+    }
+    sw[p] = SW_MAX * Math.tanh(sw[p] / SW_MAX);               // 끝에 갈수록 덜 돌게 — 기둥을 뚫지 않을 만큼
+  }
 }
 
 export function initGlass() {
@@ -211,6 +255,10 @@ export function initGlass() {
   scene.add(hold);
 
   still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  addEventListener('pointermove', (e) => {                    // 건들면 흔들림 (poke) — 프레임 사이 움직인 거리를 모아 둠
+    if (ptr.x >= 0) { ptr.dx += e.clientX - ptr.x; ptr.dy += e.clientY - ptr.y; }
+    ptr.x = e.clientX; ptr.y = e.clientY; ptr.moved = true;
+  }, { passive: true });
   resize();
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resize, 120); });
   t0 = performance.now();
