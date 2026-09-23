@@ -22,7 +22,7 @@ const VX = [284, 586, 888, 1190, 1492];     // 세로 겹선(23px) 왼선
 const HY = [237, 480, 724];                 // 가로선
 const W0 = 284, T0 = 724, POP = 50;         // 박스 기본 = 왼쪽 아래 칸(폭 284, 윗변 724) · 등장 중간 크기 50×50
 const LAP_W = 307;                          // 노트북 폭 — 오른끝이 격자 오른끝(1800)
-const TEXT_H = 479;                         // 초록 글상자 높이 (stage1.js H_SEQ)
+const TEXT_Y = 480;                         // 초록 글상자 아래끝 = 이 가로선 바로 위 (stage1.js seqH, 1080 에선 479)
 const TEXT_L = 1273;                        // 초록 글 왼끝(무대 좌표, stage1.js BODY 마지막 프레임)
 const TALL_W0 = 1492, TALL_W1 = 1569;       // 이 박스 폭 사이에서 글상자가 격자 전체 높이로 늘어남 (Figma 133:783 #20)
 let squeeze = () => {};                     // stage1.js 가 넘겨줌 — (왼끝, 높이) 로 본문을 다시 조판
@@ -52,7 +52,7 @@ function derive(ww, tt) {
   //   옆: 왼끝이 박스 오른변의 겹선 오른선(오른변 + 23)에 밀려 좁아지고 줄을 다시 나눔. 오른끝 1860 고정
   //   높이: 폭이 박스 1492 → 1569 사이에서 479 → 격자 전체로 늘어남(좁아진 글이 노트북 옆까지 내려옴),
   //         아랫변은 박스 윗변의 가로선(밀려 올라간 선)을 넘지 않음 — 선 바로 위에서 잘림
-  const baseH = lerp(TEXT_H, GH * sy, clamp((ww - TALL_W0) / (TALL_W1 - TALL_W0), 0, 1));
+  const baseH = lerp(TEXT_Y * sy - 1, GH * sy, clamp((ww - TALL_W0) / (TALL_W1 - TALL_W0), 0, 1));
   return [
     ...VX.map((x) => Math.max(x, ww)),
     ...HY.map((y) => Math.min(y, tt) * sy),

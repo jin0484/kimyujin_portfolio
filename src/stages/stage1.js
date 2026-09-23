@@ -51,6 +51,12 @@ const FRAMES = [
   { name: 420, year: 100, laptop: 60  },   // 7
   { name: 420, year: 100, laptop: 60  },   // 8
 ];
+/* ── 첫 화면 호버: YUJIN 에 올리면 YUJIN 크게 · KIM 작게(Figma #2, 100:19), KIM 에 올리면 다시 KIM 크게(#1) ──
+ *  떼도 그 배치로 남는다. 휠 돌리기 전(pos 0)에만. 퇴장이 시작되면 KIM 크게로 돌아가며 같이 내려간다.
+ *  글자 8개(k i m y u j i2 n) — #s1name 창 기준 [left, bottom, width, height]. 노트북은 YUJIN 크게일 때 SWAP_LIFT 만큼 더 올라감(Figma #2: bottom 453.6) */
+const NAME_A = [[0, 0.14, 249.138, 370.86], [301.024, 0.18, 56.441, 370.817], [408.425, 0, 482.636, 378], [908, 0, 195, 234], [1152, 0, 187, 234], [1387.601, 0, 84.118, 233.997], [1521, 1, 34, 233], [1603.629, -0.4, 193.889, 234.404]];
+const NAME_B = [[-1, 0, 156, 232], [187, 0, 35, 232], [254, 0, 301, 236], [524, -0.4, 312, 374], [876.482, -0.4, 300, 374], [1215.482, -0.4, 136, 374], [1390.482, 0.6, 55, 373], [1486.482, -0.4, 312, 374]];
+const SWAP_LIFT = 453.6 - 314;
 
 /* ── 본문 트랙 — Figma "초록 작은 글자 모션" 섹션(120:1010) 26프레임 ──
  *  글상자 하나가 오른쪽으로 열렸다가, 오른쪽에 붙은 채 왼쪽에서 닫힌다.
@@ -90,7 +96,8 @@ const BODY = [
   [1273,  587,  479, 1, 1, 1],   // #27 2단으로 좁혀져 멈춤
 ];
 const BODY_FROM = 0, BODY_TO = 7;   // FRAMES 의 이 구간(처음 → 끝, 퇴장 전체) 동안 BODY 26프레임이 흐른다
-const H_SEQ = 479;                  // 시퀀스 중 글상자 높이 (Figma). 이 높이를 채우는 만큼만 글을 보여준다
+const H_SEQ = 479;                  // BODY 표의 시퀀스 높이 (Figma, 1920×1080 기준). 실제로는 seqH 로 바꿔 씀
+let seqH = H_SEQ;                   // 시퀀스 중 글상자 높이 = 격자 가운데 가로선(480) 바로 위. 화면 높이에 따라 격자가 늘고 줄면 같이 (1080 에선 479)
 
 function easeFn(name) {
   const m = /cubic-bezier\(([^)]+)\)/.exec(getComputedStyle(stage).getPropertyValue(name));
@@ -121,7 +128,7 @@ function curve(y) {
 }
 // BODY 의 여섯 칸(left · width · height · lastAlign · text · fill)마다 곡선 하나. height 의 null 은 격자 전체 높이라 fullH 를 안 뒤에 짓는다
 let BC = null;
-function buildBodyCurves() { BC = [0, 1, 2, 3, 4, 5].map((k) => curve(BODY.map((f) => f[k] ?? fullH))); }
+function buildBodyCurves() { BC = [0, 1, 2, 3, 4, 5].map((k) => curve(BODY.map((f) => (k === 2 ? (f[2] == null ? fullH : f[2] === H_SEQ ? seqH : f[2]) : f[k])))); }
 
 /* ── 본문 조판 (Pretext) ──
  *  폭이 585 → 1799 → 587 로 세 배씩 변해서, 매 프레임 줄을 다시 나누면 이웃 프레임 사이에서도 단어의 58% 가
@@ -196,7 +203,7 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
     P.shown = nVis;
   }
-  // 줄마다 비어 있는 구간들(rows[줄] = [[x0, x1], …], 창 기준)에 글을 차례로 흘려 넣는다 — 첫 화면에서 KIM 을 피해 흐르게.
+  // 줄마다 비어 있는 구간들(rows[줄] = [[x0, x1], …], 창 기준)에 글을 차례로 흘려 넣는다 — 첫 화면에서 KIM(YUJIN) 을 피해 흐르게.
   // Pretext layoutNextLine 으로 구간 폭마다 한 줄씩. 단어가 구간보다 길어 잘리면 그 구간은 비우고 다음 구간으로
   function flow(rows) {
     const segs = []; let cur = { segmentIndex: 0, graphemeIndex: 0 }, ui = 0;
@@ -212,13 +219,12 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
         ui += n; cur = ln.end;
       }
     }
-    return { segs, count: ui, id: Math.random() };
+    return { segs, count: ui };
   }
-  function placeFlow(P, F, nVis) {                            // 구간마다 양끝맞춤 (마지막 구간만 왼끝)
+  function showFlow(F, nVis) {                                // 구간마다 양끝맞춤 (마지막 구간만 왼끝). 매 프레임 불려도 되게 키 없이 바로 찍음
+    const P = pair[0];
     nVis = Math.max(0, Math.min(F.count, Math.round(nVis)));
-    const key = 'f|' + F.id + '|' + nVis;
-    if (key === P.key) return;
-    P.key = key;
+    P.key = '';                                               // 다음에 place() 가 오면 다시 찍게
     let i = 0;
     F.segs.forEach(({ i0, n, x, w, y }, si) => {
       if (i >= nVis) return;
@@ -230,11 +236,7 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     for (let k = P.shown; k < nVis; k++) P.els[k].style.display = '';
     for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
     P.shown = nVis;
-  }
-  function showFlow(F, nVis, alpha) {
-    if (alpha <= 0) { pair[0].el.style.display = pair[1].el.style.display = 'none'; return; }
-    placeFlow(pair[0], F, nVis);
-    pair[0].el.style.display = ''; pair[0].el.style.opacity = alpha;
+    P.el.style.display = ''; P.el.style.opacity = 1;
     pair[1].el.style.display = 'none';
   }
   // structA → structB 로 ft(0~1) 만큼 갈아끼운 모습을, 전체 alpha 로. 구조가 같으면 겹치지 않는다
@@ -275,42 +277,62 @@ function measureFill() {                                      // 상자를 꽉 �
   bodyClip.style.height = keep;
   if (h > 0) fullH = h;
   nAll = tsA.fitCount(BODY[0][1], fullH > 0 ? fullH : 1e4, 2);   // 처음: 격자 아래선까지 꽉 — 걸치는 줄은 잘리게 두 줄 더
-  nSeq = tsA.fitCount(BODY[0][1], H_SEQ);                        // 시퀀스: 479px(18줄), Figma 그대로
-  kimFlow = null;
-  const rows = kimRows();                                        // 첫 화면은 KIM 을 피해 흐름 — 채울 분량도 그 조판 기준
-  if (rows) { kimFlow = tsA.flow(rows); nAll = kimFlow.count; }
+  seqH = fullH > 0 ? fullH * 480 / 960 - 1 : H_SEQ;             // 격자 가운데 가로선 바로 위 (fullH = 격자 높이)
+  nSeq = tsA.fitCount(BODY[0][1], seqH);                         // 시퀀스: 그 높이에 온전히 들어가는 줄까지 (1080: 18줄)
+  flowKey = '';                                                  // 높이가 바뀌면 흐름 조판도 다시
+  const F = kimFlow();                                           // 첫 화면은 글자를 피해 흐름 — 채울 분량도 그 조판 기준
+  if (F) nAll = F.count;
   buildBodyCurves();                                             // 높이 칸에 fullH 가 들어가므로 여기서 같이 짓는다
 }
 
-/* ── 첫 화면: 초록 글이 KIM 외곽을 피해 흐름 ──
- *  글자 SVG 를 캔버스에 그려 줄(26px)마다 글자가 차지한 가로 구간을 읽고, --s1flowGap 만큼 띄운 나머지 빈 구간에 글을 흘린다.
+/* ── 첫 화면: 초록 글이 KIM(YUJIN) 외곽을 피해 흐름 — 외곽이 움직이면 글도 같이 밀려남 ──
+ *  지금 글자 배치(호버 swapS · 퇴장으로 내려간 거리 nameDrop)대로 글자 SVG 를 캔버스에 그려, 줄(26px)마다 글자가 차지한
+ *  가로 구간을 읽고 --s1flowGap 만큼 띄운 나머지 빈 구간에 글을 흘린다(Pretext layoutNextLine).
  *  --s1flowMin 보다 좁은 빈 구간(K·I·M 사이 틈)은 비우고, M 아치 안쪽처럼 넉넉한 곳은 채운다.
- *  퇴장 휠 첫 구간(BODY #3 → #3', 글상자가 격자 전체 → 479 로 줄어드는 동안)까지만 이 조판이고, 그다음부터는 원래 사각형 조판.
- *  1920×1080 기준 KIM 위끝(642)이 479 상자 아래끝(539)보다 아래라, 갈아끼울 때 보이는 줄은 두 조판이 똑같다. */
-let kimFlow = null;
+ *  호버로 글자가 커지고 작아지는 동안, 퇴장으로 내려가는 동안 매 프레임 다시 흘려서 단어가 외곽에 밀리고 다음 줄로 넘어간다.
+ *  퇴장 휠 첫 구간(글상자가 격자 전체 → 가운데선으로 줄어드는 동안)까지만 이 조판이고, 그다음부터는 원래 사각형 조판.
+ *  글자 영역 위쪽 줄은 막힌 데가 없어 사각형 조판과 줄바꿈이 똑같다 — 그래서 갈아끼워도 보이는 줄은 안 바뀐다. */
+let flowKey = '', flowCache = null, flowCv = null, nameDrop = 0;
+function kimFlow() {
+  if (!tsA || !letters.every((im) => im.complete && im.naturalWidth)) return null;   // 글자 그림이 아직이면 사각형 조판
+  const key = swapS.toFixed(3) + '|' + nameDrop.toFixed(1) + '|' + fullH;
+  if (key !== flowKey) { const rows = kimRows(); flowKey = key; flowCache = rows ? tsA.flow(rows) : null; }
+  return flowCache;
+}
 function kimRows() {
-  if (!letters.every((im) => im.complete && im.naturalWidth)) return null;   // 글자 그림이 아직이면 사각형 조판
   const cs = getComputedStyle(stage);
-  const M = parseFloat(cs.getPropertyValue('--s1flowGap')) || 12, MIN = parseFloat(cs.getPropertyValue('--s1flowMin')) || 40;
+  const G = parseFloat(cs.getPropertyValue('--s1flowGap')) || 10, MIN = parseFloat(cs.getPropertyValue('--s1flowMin')) || 40;
   const CX = BODY[0][0], CY = 60, CW = BODY[0][1], stH = Math.ceil(parseFloat(stage.style.height) || 0);
   if (!(stH > 0 && fullH > 0)) return null;
-  const cv = document.createElement('canvas'); cv.width = CW; cv.height = stH;
-  const g = cv.getContext('2d', { willReadFrequently: true });
-  const name = $('#s1name');
-  for (const im of letters) g.drawImage(im, name.offsetLeft + im.offsetLeft - CX, name.offsetTop + im.offsetTop, im.offsetWidth, im.offsetHeight);
-  const px = g.getImageData(0, 0, CW, stH).data;
+  const name = $('#s1name'), nTop = name.offsetTop, nBot = nTop + name.offsetHeight;   // 글자 창 — 이 밖으로 나간 부분은 안 보이므로 안 막음
+  if (!flowCv) flowCv = document.createElement('canvas');
+  if (flowCv.width !== CW || flowCv.height !== stH) { flowCv.width = CW; flowCv.height = stH; }
+  const g = flowCv.getContext('2d', { willReadFrequently: true });
+  g.clearRect(0, 0, CW, stH);
+  let top = nBot;
+  letters.forEach((im, k) => {
+    const P = NAME_A[k], Q = NAME_B[k];
+    const l = lerp(P[0], Q[0], swapS), b = lerp(P[1], Q[1], swapS), w = lerp(P[2], Q[2], swapS), h = lerp(P[3], Q[3], swapS);
+    const y = nBot - b - h + nameDrop;
+    if (name.offsetLeft + l - CX > CW) return;                   // 본문 단 오른쪽 밖 (YUJIN 대부분)
+    g.drawImage(im, name.offsetLeft + l - CX, y, w, h);
+    top = Math.min(top, Math.max(nTop, y));
+  });
+  const yA = Math.max(0, Math.floor(top - G)), yB = Math.min(stH, nBot);
+  const px = yB > yA ? g.getImageData(0, yA, CW, yB - yA).data : null;
   const rows = [], n = Math.floor(fullH / LH) + 3;
   for (let li = 0; li < n; li++) {
-    const y0 = Math.max(0, CY + li * LH - M), y1 = Math.min(stH, CY + (li + 1) * LH + M);
+    const y0 = Math.max(yA, CY + li * LH - G), y1 = Math.min(yB, CY + (li + 1) * LH + G);
+    if (!px || y1 <= y0) { rows.push([[0, CW]]); continue; }      // 글자 영역에 안 닿는 줄은 통째로
     const occ = new Uint8Array(CW);
-    for (let y = y0; y < y1; y++) for (let x = 0, o = y * CW * 4 + 3; x < CW; x++, o += 4) if (px[o] > 8) occ[x] = 1;
-    const free = []; let a = 0;                                   // 글자 구간 양옆을 M 만큼 넓혀 막고, 남은 구간 중 넉넉한 것만
+    for (let y = y0; y < y1; y++) for (let x = 0, o = (y - yA) * CW * 4 + 3; x < CW; x++, o += 4) if (px[o] > 8) occ[x] = 1;
+    const free = []; let a = 0;                                   // 글자 구간 양옆을 G 만큼 넓혀 막고, 남은 구간 중 넉넉한 것만
     for (let x = 0; x <= CW; x++) {
       if (x < CW && !occ[x]) continue;
-      const b = x === CW ? CW : x - M;
+      const b = x === CW ? CW : x - G;
       if (b - a >= MIN) free.push([a, b]);
       while (x < CW && occ[x]) x++;
-      a = x + M;
+      a = x + G;
     }
     rows.push(free);
   }
@@ -339,7 +361,8 @@ function renderBody(p) {
   body.style.width = w + 'px';
   // 구간의 앞부분은 줄 구조를 그대로 둔 채 폭만 벌어지고(단어가 줄을 안 건넘), 끝 wrapFade 만큼에서 다음 구조로 갈아낀다
   const ft = t <= 1 - wrapFade ? 0 : (t - (1 - wrapFade)) / wrapFade;
-  if (kimFlow && i === 0) tsA.showFlow(kimFlow, nVis, 1);   // 첫 구간까지는 KIM 을 피해 흐르는 조판
+  const F = i === 0 ? kimFlow() : null;                      // 첫 구간(폭 585 그대로)까지는 글자를 피해 흐르는 조판 — 글자가 움직이면 매 프레임 다시 흘림
+  if (F) tsA.showFlow(F, lerp(F.count, nSeq, cl(BC[5](i, t))));
   else tsA.show(w, lastAlign, nVis, A[1], B[1], ft, mix >= 1 ? 0 : mix > 0 ? Math.sqrt(1 - mix) : 1);
   tsB.show(w, lastAlign, tsB.count, A[1], B[1], ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
@@ -356,9 +379,34 @@ function render(q) {                                        // q: --s1stepEase �
   const i = Math.min(N - 1, Math.floor(q)), t = q - i;
   const A = FRAMES[i], B = FRAMES[i + 1];
   year.style.transform = "translateY(" + (-lerp(A.year, B.year, t)) + "px)";
-  laptop.style.bottom = lerp(A.laptop, B.laptop, t) + "px";
+  laptop.style.bottom = lerp(A.laptop, B.laptop, t) + swapS * SWAP_LIFT + "px";
   const ny = lerp(A.name, B.name, t);
-  for (const e of letters) e.style.transform = "translateY(" + ny + "px)";   // 글자: 아래로 내려간 거리 (배치는 CSS)
+  nameDrop = ny;
+  letters.forEach((e, k) => {                               // 글자: 호버 배치(KIM↔YUJIN) + 아래로 내려간 거리
+    if (swapS > 0) {
+      const P = NAME_A[k], Q = NAME_B[k];
+      e.style.left = lerp(P[0], Q[0], swapS) + "px"; e.style.bottom = lerp(P[1], Q[1], swapS) + "px";
+      e.style.width = lerp(P[2], Q[2], swapS) + "px"; e.style.height = lerp(P[3], Q[3], swapS) + "px";
+    } else e.style.left = e.style.bottom = e.style.width = e.style.height = "";   // KIM 크게 = CSS 그대로
+    e.style.transform = "translateY(" + ny + "px)";
+  });
+}
+
+// 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다
+let swapS = 0, swapU = 0, swapTo = 0, swapRaf = 0, swapLast = 0, swapEase = null;
+function swapTick(now) {
+  const dt = Math.max(0, Math.min(50, now - swapLast)); swapLast = now;
+  const ms = (parseFloat(getComputedStyle(stage).getPropertyValue('--s1swap')) || 0.7) * 1000;
+  swapU = swapTo > swapU ? Math.min(swapTo, swapU + dt / ms) : Math.max(swapTo, swapU - dt / ms);
+  swapS = swapEase(swapU);
+  if (!raf) { render(eased(pos)); renderBody(pos); }         // 휠 시퀀스가 돌고 있으면 그쪽 tick 이 같이 그림
+  swapRaf = swapU !== swapTo ? requestAnimationFrame(swapTick) : 0;
+}
+function setSwap(v) {
+  if (swapTo === v) return;
+  swapTo = v;
+  swapEase = swapEase || easeFn('--s1stepEase');
+  if (!swapRaf) { swapLast = performance.now(); swapRaf = requestAnimationFrame(swapTick); }
 }
 function clear() {                                          // 위치 0 — 인라인 지우고 CSS 값으로
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
@@ -399,6 +447,7 @@ function play(d) {
   if ((d > 0 && pos >= N) || (d < 0 && pos <= 0)) return;
   buildBody();
   if (atStart()) {                                          // 출발할 때 한 번 잼
+    setSwap(0);                                             // YUJIN 크게였으면 KIM 크게로 돌아가며 퇴장
     measureFill();
     ease = easeFn('--s1stepEase');                          // 글자·라벨·노트북
     bodyEase = easeFn('--s1bodyEase');                      // 초록 본문 — 양끝 더 느리게, 가운데 더 빠르게
@@ -424,6 +473,8 @@ export function initStage1() {
     body.style.clipPath = 'inset(0 0 0 0)';
     setTimeout(() => { body.style.transition = ''; }, n * LINE_MS + 50);   // 끝나면 시퀀스용 transition 으로 복귀
   }, 150);
+  // 호버 — KIM 글자에 올리면 KIM 크게, YUJIN 글자에 올리면 YUJIN 크게 (첫 화면에서만)
+  letters.forEach((im, k) => im.addEventListener('pointerenter', () => { if (atStart()) setSwap(k < 3 ? 0 : 1); }));
   // 휠 — 캡처 단계에서 받아서 어떤 요소 위에 있든 잡음. deltaMode 가 줄/페이지 단위인 환경(Firefox 등)도 방향만 보면 되므로 그대로
   window.addEventListener('wheel', (e) => { if (e.deltaY !== 0) play(e.deltaY > 0 ? 1 : -1); }, { passive: true, capture: true });
   // 키보드 — ↓/PageDown/Space 앞으로, ↑/PageUp 뒤로

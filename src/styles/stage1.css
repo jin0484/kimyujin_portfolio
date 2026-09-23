@@ -5,7 +5,7 @@
   transform-origin: 0 0; will-change: transform;
   --s1step: .5s; --s1stepEase: cubic-bezier(.5, 0, .5, 1);   /* 휠 시퀀스: 프레임 간 시간(전체 = ×7) · 전체에 한 번 걸리는 이징. 앞뒤 대칭이어야 되감기가 정방향의 거울이 됨 */
   --s1bodyEase: cubic-bezier(.75, 0, .25, 1);   /* 초록 본문만 쓰는 이징. 위 --s1stepEase(가운데 최고속도 평균의 2배)보다 S자가 강해서 양끝은 더 느리고 가운데가 4배까지 빨라진다. 전체 시간은 --s1step 그대로. 앞뒤 대칭이라 되감기도 거울 */
-  --s1flowGap: 12; --s1flowMin: 40;   /* 첫 화면 초록 글이 KIM 외곽을 피하는 거리(px) · 이보다 좁은 빈 틈은 비움(px) (stage1.js kimRows) */
+  --s1flowGap: 10; --s1flowMin: 40;   /* 첫 화면 초록 글이 KIM(YUJIN) 외곽을 피하는 거리(px) · 이보다 좁은 빈 틈은 비움(px) (stage1.js kimRows) */
   --s1wrap: .35;     /* 초록 본문: 26프레임 중 한 구간에서 줄 구조를 갈아끼우는 데 쓰는 비율(0~1). 앞부분은 줄이 고정된 채 폭만 벌어지고, 끝 이만큼에서만 살짝 갈아끼운다. 낮추면 또렷·툭툭, 높이면 부드럽지만 잔상 */
 }
 #s1stage img { position: absolute; display: block }
@@ -62,6 +62,8 @@
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    퇴장(아래로 내려감)은 stage1.js 의 FRAMES 가 인라인 transform 으로 */
 #s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; overflow: hidden; pointer-events: none }   /* 글자 영역이 노트북 클릭을 가리지 않게 */
+#s1name img { pointer-events: auto }   /* 글자 자체만 호버를 받음 — KIM↔YUJIN 배치 (stage1.js setSwap). 노트북(z-index 2)은 그대로 위 */
+#s1stage { --s1swap: .7s }             /* 호버로 KIM↔YUJIN 이 바뀌는 시간 (이징은 --s1stepEase) */
 /* 창 기준 좌표 = Figma 좌표 − (61, 60) */
 .s1-k  { left: 0px;        bottom: 0.14px; width: 249.138px; height: 370.86px }
 .s1-i  { left: 301.024px;  bottom: 0.18px; width: 56.441px;  height: 370.817px }
