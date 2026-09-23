@@ -13,7 +13,7 @@ export const DUMMY =
  *  Figma "초록 작은 글자 모션" 섹션의 #18 프레임부터 나오는 글. 아직 정해지지 않아 자리만 잡아둔 것 —
  *  띄어쓰기가 없어서 글자 단위로 줄이 나뉜다(여백 본문은 단어 단위). 실제 글로 바꾸면 띄어쓰기 여부에 따라
  *  stage1.js 의 typeset(DUMMY2, ...) 두 번째 인자를 'word' 로 바꿔야 한다. ══════════ */
-export const DUMMY2 = '여기서부턴다른글로바뀝니다.'.repeat(39);
+export const DUMMY2 = 'SPOILER SPOILER SPOILER '.repeat(39);
 
 /* ══════════ 화면 1 네모박스 사진 — 프로젝트 스포. 페이지를 열거나 새로고침할 때마다 이 중 하나를 랜덤으로 (box.js) ══════════
  *  사진 추가: public/projects/ 에 1800×960(격자 크기와 같게) JPG 로 넣고 한 줄 더 쓰면 끝 (Figma "사진 랜덤" 147:938).

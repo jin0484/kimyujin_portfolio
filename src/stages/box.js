@@ -11,6 +11,9 @@
  *             오른변이 다가오면 왼쪽에서 눌려 좁아지고 다시 조판됨 (133:783)
  *   노트북  — 박스 오른변이 노트북 왼끝을 넘으면 오른쪽 아래 기준으로 작아짐 (폭 = 격자 오른끝 − 박스 오른변)
  * 좌표는 Figma 격자(1800 × 960) 기준. 세로는 무대 높이에 맞춰 늘어나므로 그릴 때 sy 를 곱한다.
+ *
+ * 3번째 휠(Figma "3번째 휠" 152:1046, 0.6초): 박스는 왼쪽 아래 기준, 초록 글상자는 오른쪽 위 기준으로 같은 비율로 작아져 사라짐.
+ *   글상자 폭이 줄어드는 만큼 글이 다시 조판된다. 휠 올리면 반대로.
  */
 import { $, bezier } from '../utils.js';
 import { BOX_SHOTS } from '../data.js';
@@ -25,12 +28,14 @@ const W0 = 284, T0 = 724, POP = 50;         // 박스 기본 = 왼쪽 아래 칸
 const LAP_W = 307;                          // 노트북 폭 — 오른끝이 격자 오른끝(1800)
 const TEXT_Y = 480;                         // 초록 글상자 아래끝 = 이 가로선 바로 위 (stage1.js seqH, 1080 에선 479)
 const TEXT_L = 1273;                        // 초록 글 왼끝(무대 좌표, stage1.js BODY 마지막 프레임)
+const TEXT_R = 1860;                        // 초록 글 오른끝 = 격자 오른선
 const TALL_W0 = 1492, TALL_W1 = 1569;       // 이 박스 폭 사이에서 글상자가 격자 전체 높이로 늘어남 (Figma 133:783 #20)
 let squeeze = () => {};                     // stage1.js 가 넘겨줌 — (왼끝, 높이) 로 본문을 다시 조판
 
 let sy = 1, scale = 1;                      // 세로 배율(무대 높이 / 1080 격자) · 무대 scale(화면 px → 무대 px)
 let w = W0, t = T0;                         // 박스 오른변 x · 윗변 y (격자 좌표)
 let shown = false, u = 0, uTo = 0;          // u: 등장 진행(이징 전, 0~1)
+let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록 글이 사라지는 진행(이징 전, 0~1)
 let drag = null, spring = null, raf = 0, lastT = 0;
 let ease = null, inMs = 600, damp = 0.7, freq = 12;
 
@@ -101,6 +106,16 @@ function render() {
     paintGrid(derive(W0, T0));
     return;
   }
+  const c = ease ? ease(v) : v;
+  if (c > 0) {                                               // 3번째 휠 (Figma 152:1046): 박스는 왼쪽 아래, 초록 글은 오른쪽 위 모서리를 기준으로 비율대로 작아져 사라짐
+    const k = 1 - c, bw = W0 * k, bh = (GH - T0) * sy * k;
+    box.style.width = bw + 'px'; box.style.height = bh + 'px'; placeShot(bw, bh);
+    paintGrid(derive(W0, T0));
+    laptop.style.transform = laptop.style.visibility = '';
+    const tw = (TEXT_R - TEXT_L) * k;                        // 글상자 폭이 줄어드는 만큼 줄을 다시 나눔(글자 단위)
+    squeeze(TEXT_R - tw, (TEXT_Y * sy - 1) * k);
+    return;
+  }
   box.style.width = w + 'px';
   box.style.height = (GH - t) * sy + 'px';
   placeShot(w, (GH - t) * sy);
@@ -125,6 +140,11 @@ function tick(now) {
     busy = u !== uTo;
     if (u === 0 && uTo === 0) { shown = false; box.classList.remove('on'); laptop.style.transform = laptop.style.visibility = ''; }
   }
+  if (v !== vTo) {                                           // 3번째 휠: 사라짐 / 되돌아옴
+    v = vTo > v ? Math.min(vTo, v + dt / inMs) : Math.max(vTo, v - dt / inMs);
+    busy = busy || v !== vTo;
+    if (v === 0 && vTo === 0) hint(true);                    // 다 돌아오면 DRAG ↗ 다시
+  }
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
     w = W0 + spring.w * f; t = T0 + spring.t * f; spring.f = f;
@@ -148,8 +168,21 @@ export function showBox() {
   render(); kick();
   return inMs * (1 - u);
 }
+// 3번째 휠 — 박스·초록 글 사라짐(등장 반대, 0.6초). 휠 올리면 되돌아옴
+export const boxCleared = () => vTo === 1;
+export function clearBox() {
+  if (!shown || u < 1 || vTo === 1 || drag) return 0;
+  readVars(); spring = null; w = W0; t = T0; hint(false);
+  vTo = 1; kick();
+  return inMs * (1 - v);
+}
+export function unclearBox() {
+  if (vTo === 0) return 0;
+  vTo = 0; kick();
+  return inMs * v;
+}
 export function hideBox() {
-  if (!shown || uTo === 0 || drag) return 0;
+  if (!shown || uTo === 0 || drag || vTo !== 0 || v > 0) return 0;
   spring = null; w = W0; t = T0; render();                   // 튕기는 중이었으면 제자리로 놓고 들어감
   uTo = 0; kick();
   return inMs * u;
@@ -185,7 +218,7 @@ export function initBox(squeezeBody) {
     if (shot.ink) $('#s1drag').style.color = shot.ink;          // 밝은 사진은 DRAG ↗ 를 어둡게
   }
   box.addEventListener('pointerdown', (e) => {
-    if (!shown || uTo !== 1 || u < 1 || e.button !== 0) return;
+    if (!shown || uTo !== 1 || u < 1 || v > 0 || vTo !== 0 || e.button !== 0) return;   // 3번째 휠로 사라지는 중엔 못 잡음
     e.preventDefault();
     box.setPointerCapture(e.pointerId);
     spring = null;                                           // 튕기는 중에 다시 잡으면 그 자리에서 이어서

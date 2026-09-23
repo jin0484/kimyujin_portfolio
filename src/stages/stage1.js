@@ -5,7 +5,8 @@
  * 격자·본문은 위아래로 늘어나고 KIM YUJIN 은 바닥에 붙는다.
  * 좌표·크기는 Figma 값 그대로 (src/styles/stage1.css). 본문 글은 data.js 의 DUMMY · DUMMY2.
  * 본문: 처음 들어올 때 위에서 아래로 한 줄씩 드러남 (clip-path 를 줄 수만큼의 steps 로 내림).
- * 휠: 첫 휠에 퇴장 시퀀스, 두 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄). (Figma "휠 이벤트 정리 표" 135:800)
+ * 휠: 첫 휠에 퇴장 시퀀스, 두 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄),
+ *     세 번째 휠에 박스·오른쪽 위 초록 글이 작아지며 사라짐(box.js clearBox, Figma 152:1046). (Figma "휠 이벤트 정리 표" 135:800)
  *     KIM↔YUJIN 스왑 정지점 두 개는 2026-09-23 삭제 — 필요하면 커밋 c2ebafb 의 FRAMES·NAME_B 참고
  *
  * 트랙이 둘 — 둘 다 같은 위치(pos)를 보지만 표는 따로다:
@@ -16,7 +17,7 @@
 import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
-import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown } from './box.js';
+import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared } from './box.js';
 
 const stage = $('#s1stage'), body = $('#s1body'), bodyClip = $('#s1bodyclip'),
       year = $('#s1year'), laptop = $('#s1laptop'), letters = [...stage.querySelectorAll('#s1name img')];
@@ -164,8 +165,16 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     if (L) return L;
     L = []; let ui = 0;
     for (const ln of layoutWithLines(prepared, key, LH).lines) {
-      const s = ln.text.trim();
-      const n = mode === 'word' ? (s ? s.split(' ').filter(Boolean).length : 0) : [...s].length;
+      let n;
+      if (mode === 'word') { const s = ln.text.trim(); n = s ? s.split(' ').filter(Boolean).length : 0; }
+      else {
+        // 글자 단위: 띄어쓰기도 단위 하나라 세야 한다(안 세면 줄마다 한두 글자씩 밀려 끝에 남은 글자가 한 줄에 펼쳐짐).
+        // 줄 앞의 띄어쓰기는 앞 줄 끝에 붙이고, 이 줄 뒤에 이어지는 띄어쓰기도 이 줄 끝에 붙인다
+        let lead = 0; while (units[ui + lead] === ' ') lead++;
+        if (lead && L.length) { L[L.length - 1].n += lead; ui += lead; lead = 0; }   // 맨 첫 줄이면 그대로 이 줄 앞에 둠(단위를 빠뜨리지 않게)
+        n = lead + [...ln.text.replace(/^\s+/, '').replace(/\s+$/, '')].length;
+        while (units[ui + n] === ' ') n++;
+      }
       if (n > 0) { L.push({ i0: ui, n }); ui += n; }
     }
     if (ui < units.length) L.push({ i0: ui, n: units.length - ui });   // 혹시 남으면 마지막 줄에
@@ -186,16 +195,17 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     P.key = key;
     const S = linesFor(structW);
     let li = 0, i = 0;
+    const inked = (i0, n) => { while (n > 0 && units[i0 + n - 1] === ' ') n--; return n; };   // 줄 끝 띄어쓰기는 폭 계산에서 뺌(오른끝이 맞게)
     for (; li < S.length && S[li].i0 + S[li].n < nVis; li++) {          // 중간 줄 — 남는 폭을 단위 사이에 흘림
-      const { i0, n } = S[li];
-      let sum = 0; for (let k = 0; k < n; k++) sum += uw[i0 + k];
-      const extra = n > 1 ? Math.max(0, boxW - sum - gap * (n - 1)) / (n - 1) : 0;
+      const { i0, n } = S[li], m = inked(i0, n);
+      let sum = 0; for (let k = 0; k < m; k++) sum += uw[i0 + k];
+      const extra = m > 1 ? Math.max(0, boxW - sum - gap * (m - 1)) / (m - 1) : 0;
       let x = 0; const y = li * LH;
       for (let k = 0; k < n; k++, i++) { P.els[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y + 'px)'; x += uw[i] + gap + extra; }
     }
     if (li < S.length && i < nVis) {                                    // 마지막 줄 — 늘리지 않고 통째로 좌/우
-      const { i0 } = S[li], n = Math.min(nVis, i0 + S[li].n) - i0;
-      let sum = gap * Math.max(0, n - 1); for (let k = 0; k < n; k++) sum += uw[i0 + k];
+      const { i0 } = S[li], n = Math.min(nVis, i0 + S[li].n) - i0, m = inked(i0, n);
+      let sum = gap * Math.max(0, m - 1); for (let k = 0; k < m; k++) sum += uw[i0 + k];
       let x = Math.max(0, boxW - sum) * lastAlign; const y = li * LH;
       for (let k = 0; k < n; k++, i++) { P.els[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y + 'px)'; x += uw[i] + gap; }
     }
@@ -260,7 +270,7 @@ let tsA = null, tsB = null, nAll = 0, nSeq = 0;
 function buildBody() {                                        // 문단 → 단위 span 두 벌 (처음 한 번)
   if (tsA) return;
   tsA = typeset(DUMMY.repeat(6), 'word');                     // 여백 본문 — 띄어쓰기 단위
-  tsB = typeset(DUMMY2, 'char');                              // 바뀐 글 — 띄어쓰기가 없어 글자 단위
+  tsB = typeset(DUMMY2, 'char');                              // 바뀐 글 — 글자 단위(띄어쓰기가 있어도 됨, 단어 중간에서도 줄이 바뀜)
   body.textContent = '';
   body.append(...tsA.els, ...tsB.els);
   const lay = () => { measureFill(); renderBody(pos); };
@@ -439,8 +449,9 @@ function tick(now) {
 const atStart = () => pos === 0 && dir === 0;
 function play(d) {
   if (dir === 0 && performance.now() < lockUntil) return;
-  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 다음 휠은 네모박스 (box.js). 올리면 박스가 먼저 들어가고, 그다음 휠에 퇴장이 되감김
-    const ms = d > 0 ? showBox() : hideBox();
+  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 (box.js) — 2번째 휠 네모박스 등장, 3번째 휠 박스·초록 글 사라짐. 올리면 한 단계씩 되돌아가고, 그다음 휠에 퇴장이 되감김
+    const ms = d > 0 ? (!boxShown() ? showBox() : clearBox())
+                     : (boxCleared() ? unclearBox() : hideBox());
     if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
     return;
   }
