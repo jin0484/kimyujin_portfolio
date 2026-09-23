@@ -50,6 +50,15 @@
 #s1laptop .click .i  { left: 186.50px; top: 76.81px; width: 5.23px;  height: 20.13px }
 #s1laptop .click .c2 { left: 199.04px; top: 78.61px; width: 19.46px; height: 21.12px }
 #s1laptop .click .k  { left: 225.79px; top: 80.56px; width: 19.49px; height: 23.63px }
+/* 노트북 클릭 → 화면 이동 연출: #0c0c0c 가 오른쪽 아래 모서리에서 대각선으로 퍼져 왼쪽 위까지 덮음 (stage1.js).
+   삼각형 clip-path 의 두 꼭짓점이 오른쪽 아래(100%,100%)에서 (100%,-100%)·(-100%,100%) 까지 벌어짐. --s1wipe: 걸리는 시간 */
+:root { --s1wipe: .7s }   /* 덮개가 무대 밖(body)에 붙어서 :root 에 */
+#pagewipe {
+  position: fixed; inset: 0; z-index: 9999; background: #0c0c0c; pointer-events: all;
+  clip-path: polygon(100% 100%, 100% 100%, 100% 100%);
+  transition: clip-path var(--s1wipe, .7s) cubic-bezier(.65, 0, .35, 1);
+}
+#pagewipe.on { clip-path: polygon(100% 100%, 100% -100%, -100% 100%) }
 @keyframes s1blink { 0%, 55% { opacity: 1 } 55.01%, 100% { opacity: 0 } }
 #s1laptop:hover .click { animation: none; opacity: 1 }     /* 마우스 올리면 깜빡임 멈추고 켜짐 */
 

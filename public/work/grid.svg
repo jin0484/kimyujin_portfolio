@@ -1,0 +1,38 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="1800" height="960" viewBox="0 0 1800 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Grid">
+<path id="Vector" d="M1799.5 0.5V959.5H0.5V0.5H1799.5Z" stroke="#333333" stroke-miterlimit="10"/>
+<g id="Rectangle 4">
+<mask id="path-2-inside-1_0_26" fill="white">
+<path d="M284 0H307V960H284V0Z"/>
+</mask>
+<path d="M307 0H306V960H307H308V0H307ZM284 960H285V0H284H283V960H284Z" fill="#333333" mask="url(#path-2-inside-1_0_26)"/>
+</g>
+<g id="Rectangle 5">
+<mask id="path-4-inside-2_0_26" fill="white">
+<path d="M586 0H609V960H586V0Z"/>
+</mask>
+<path d="M609 0H608V960H609H610V0H609ZM586 960H587V0H586H585V960H586Z" fill="#333333" mask="url(#path-4-inside-2_0_26)"/>
+</g>
+<g id="Rectangle 6">
+<mask id="path-6-inside-3_0_26" fill="white">
+<path d="M888 0H911V960H888V0Z"/>
+</mask>
+<path d="M911 0H910V960H911H912V0H911ZM888 960H889V0H888H887V960H888Z" fill="#333333" mask="url(#path-6-inside-3_0_26)"/>
+</g>
+<g id="Rectangle 7">
+<mask id="path-8-inside-4_0_26" fill="white">
+<path d="M1190 0H1213V960H1190V0Z"/>
+</mask>
+<path d="M1213 0H1212V960H1213H1214V0H1213ZM1190 960H1191V0H1190H1189V960H1190Z" fill="#333333" mask="url(#path-8-inside-4_0_26)"/>
+</g>
+<g id="Rectangle 8">
+<mask id="path-10-inside-5_0_26" fill="white">
+<path d="M1492 0H1515V960H1492V0Z"/>
+</mask>
+<path d="M1515 0H1514V960H1515H1516V0H1515ZM1492 960H1493V0H1492H1491V960H1492Z" fill="#333333" mask="url(#path-10-inside-5_0_26)"/>
+</g>
+<line id="Line 1" x1="1" y1="723.5" x2="1799" y2="723.5" stroke="#333333"/>
+<line id="Line 2" x1="1" y1="479.5" x2="1799" y2="479.5" stroke="#333333"/>
+<line id="Line 3" x1="1" y1="236.5" x2="1799" y2="236.5" stroke="#333333"/>
+</g>
+</svg>
