@@ -4,7 +4,7 @@
  * 박스를 잡고 끌면 왼쪽 아래는 고정, 오른쪽 위 모서리가 커서를 따라 커진다 (처음 크기가 최소, 격자 끝이 최대).
  * 놓으면 스프링으로 처음 크기로 돌아간다(한 번 살짝 넘쳤다 복귀).
  *
- * 나머지는 전부 박스 크기 하나에서 계산하므로 박스가 돌아오면 같이 돌아온다:
+ * 나머지는 전부 박스 크기 하나에서 계산한다. 놓을 땐 그 순간 모습에서 원래 모습으로 박스와 같은 스프링을 걸어 같이 띠용:
  *   가로선  — 박스 윗변보다 아래일 수 없음. 밀려 올라가다 서로 겹치면 한 줄로 보이고, 격자 위끝에 닿으면 사라짐
  *   세로 겹선 — 같은 식으로 오른변에 밀려감
  *   초록 글 — 아랫변이 박스 윗변 가로선에 닿으면 그 선을 따라 올라가며 아래부터 잘림 (479 → 0),
@@ -14,7 +14,7 @@
  */
 import { $, bezier } from '../utils.js';
 
-const stage = $('#s1stage'), grid = $('#s1grid'), box = $('#s1box'), laptop = $('#s1laptop'), bodyClip = $('#s1bodyclip');
+const stage = $('#s1stage'), grid = $('#s1grid'), box = $('#s1box'), laptop = $('#s1laptop');
 const vg = [...grid.querySelectorAll('.v')], hr = [...grid.querySelectorAll('.h')], bd = grid.querySelector('.bd');
 
 const GW = 1800, GH = 960;                  // Figma 격자
@@ -45,17 +45,40 @@ function readVars() {
   freq = parseFloat(css('--s1boxFreq')) || 12;
 }
 
-function drawGrid(ww, tt) {
-  VX.forEach((x, i) => {
-    const X = Math.max(x, ww);
+/* 박스 크기(ww, tt) → 오른쪽 요소들의 모습. 숫자 배열 하나로 두면 놓을 때 스프링을 똑같이 걸 수 있다
+ *  [세로 겹선 x ×5, 가로선 y ×3(무대 px), 글 왼끝, 글 높이, 노트북 배율] */
+function derive(ww, tt) {
+  // 초록 글 — 두 규칙이 같이 걸림 (Figma 132:339 + 133:783)
+  //   옆: 왼끝이 박스 오른변의 겹선 오른선(오른변 + 23)에 밀려 좁아지고 줄을 다시 나눔. 오른끝 1860 고정
+  //   높이: 폭이 박스 1492 → 1569 사이에서 479 → 격자 전체로 늘어남(좁아진 글이 노트북 옆까지 내려옴),
+  //         아랫변은 박스 윗변의 가로선(밀려 올라간 선)을 넘지 않음 — 선 바로 위에서 잘림
+  const baseH = lerp(TEXT_H, GH * sy, clamp((ww - TALL_W0) / (TALL_W1 - TALL_W0), 0, 1));
+  return [
+    ...VX.map((x) => Math.max(x, ww)),
+    ...HY.map((y) => Math.min(y, tt) * sy),
+    Math.min(Math.max(TEXT_L, 60 + ww + 23), 1860),
+    Math.min(baseH, tt * sy - 1),
+    clamp((GW - ww) / LAP_W, 0, 1),                          // 노트북 — 오른쪽 아래 기준으로 작아짐
+  ];
+}
+function paintGrid(d) {
+  VX.forEach((_, i) => {
+    const X = d[i];
     vg[i].setAttribute('transform', 'translate(' + X + ' 0)');
     vg[i].style.display = X >= GW - 0.5 ? 'none' : '';
   });
-  HY.forEach((y, i) => {
-    const Y = Math.min(y, tt) * sy;
+  HY.forEach((_, i) => {
+    const Y = d[5 + i];
     hr[i].setAttribute('y', Y - 1);
     hr[i].style.display = Y <= 0.5 ? 'none' : '';
   });
+}
+function paint(d) {
+  paintGrid(d);
+  const k = d[10];
+  laptop.style.transform = Math.abs(k - 1) > 1e-4 ? 'scale(' + k + ')' : '';   // 튕길 땐 1 을 살짝 넘기도 함
+  laptop.style.visibility = k <= 0.001 ? 'hidden' : '';
+  squeeze(d[8], d[9]);
 }
 
 function render() {
@@ -64,22 +87,14 @@ function render() {
     const e = a * 2;
     const bw = e <= 1 ? POP * e : lerp(POP, W0, e - 1), bh = e <= 1 ? POP * e : lerp(POP, (GH - T0) * sy, e - 1);
     box.style.width = bw + 'px'; box.style.height = bh + 'px';
-    drawGrid(W0, T0);
+    paintGrid(derive(W0, T0));
     return;
   }
   box.style.width = w + 'px';
   box.style.height = (GH - t) * sy + 'px';
-  drawGrid(w, t);
-  const k = clamp((GW - w) / LAP_W, 0, 1);                   // 노트북
-  laptop.style.transform = k < 1 ? 'scale(' + k + ')' : '';
-  laptop.style.visibility = k <= 0.001 ? 'hidden' : '';
-  // 초록 글 — 두 규칙이 같이 걸림 (Figma 132:339 + 133:783)
-  //   옆: 왼끝이 박스 오른변의 겹선 오른선(오른변 + 23)에 밀려 좁아지고 줄을 다시 나눔. 오른끝 1860 고정
-  //   높이: 폭이 박스 1492 → 1569 사이에서 479 → 격자 전체로 늘어남(좁아진 글이 노트북 옆까지 내려옴),
-  //         아랫변은 박스 윗변의 가로선(밀려 올라간 선)을 넘지 않음 — 선 바로 위에서 잘림
-  const left = Math.max(TEXT_L, 60 + w + 23);
-  const baseH = lerp(TEXT_H, GH * sy, clamp((w - TALL_W0) / (TALL_W1 - TALL_W0), 0, 1));
-  squeeze(Math.min(left, 1860), Math.min(baseH, t * sy - 1));
+  // 놓은 뒤엔 오른쪽 요소들도 박스와 같은 스프링으로 — 놓던 순간의 모습에서 원래 모습으로, 똑같이 살짝 넘쳤다 복귀
+  if (spring) { const R = derive(W0, T0); paint(R.map((r, i) => r + (spring.d0[i] - r) * spring.f)); }
+  else paint(derive(w, t));
 }
 
 // 스프링 (처음 속도 0) — 1 에서 0 으로. damp < 1 이면 0 을 한 번 살짝 지나쳤다 돌아옴
@@ -100,8 +115,8 @@ function tick(now) {
   }
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
-    w = W0 + spring.w * f; t = T0 + spring.t * f;
-    if (el > 300 && Math.abs(spring.w * f) < 0.3 && Math.abs(spring.t * f) < 0.3) { w = W0; t = T0; spring = null; }
+    w = W0 + spring.w * f; t = T0 + spring.t * f; spring.f = f;
+    if (el > 300 && Math.abs(f) < 1e-3) { w = W0; t = T0; spring = null; }   // 박스는 조금 움직였어도 글·선은 많이 움직였을 수 있어 배율로 끝냄
     else busy = true;
   }
   if (shown) render();
@@ -136,7 +151,8 @@ export function boxSizing(stageH, s) {                       // stage1.js sizing
   grid.setAttribute('viewBox', '0 0 ' + GW + ' ' + H);
   bd.setAttribute('height', H - 1);
   for (const g of vg) for (const r of g.children) r.setAttribute('height', H);
-  if (shown) render(); else drawGrid(W0, T0);
+  if (shown) render();
+  else paintGrid(derive(W0, T0));
 }
 
 export function initBox(squeezeBody) {
@@ -158,7 +174,7 @@ export function initBox(squeezeBody) {
   const up = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null; box.classList.remove('grab');
-    if (w !== W0 || t !== T0) { readVars(); spring = { t0: performance.now(), w: w - W0, t: t - T0 }; kick(); }
+    if (w !== W0 || t !== T0) { readVars(); spring = { t0: performance.now(), w: w - W0, t: t - T0, f: 1, d0: derive(w, t) }; kick(); }
   };
   box.addEventListener('pointerup', up);
   box.addEventListener('pointercancel', up);
