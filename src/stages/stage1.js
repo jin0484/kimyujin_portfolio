@@ -7,7 +7,7 @@
  * 본문: 처음 들어올 때 위에서 아래로 한 줄씩 드러남 (clip-path 를 줄 수만큼의 steps 로 내림).
  * 휠: 첫 휠에 퇴장 시퀀스, 두 번째 휠에 왼쪽 아래 네모박스(box.js — 드래그로 격자를 밀어냄),
  *     세 번째 휠에 박스·오른쪽 위 초록 글이 작아지며 사라짐(box.js clearBox, Figma 152:1046),
- *     네 번째 휠에 격자 가로줄이 새 줄로 갈아끼워짐(box.js morphGrid, Figma 167:2190), 다섯 번째 휠에 ABOUT ME(about.js, Figma 167:2388).
+ *     네 번째(마지막) 휠에 격자 가로줄이 갈아끼워지면서 그 위로 ABOUT ME 가 돌아 들어옴(box.js morphGrid + about.js, Figma 167:2190 · 167:2388).
  *     (Figma "휠 이벤트 정리 표" 135:800)
  *     KIM↔YUJIN 스왑 정지점 두 개는 2026-09-23 삭제 — 필요하면 커밋 c2ebafb 의 FRAMES·NAME_B 참고
  *
@@ -402,7 +402,7 @@ function render(q) {                                        // q: --s1stepEase �
   const ny = lerp(A.name, B.name, t);
   nameDrop = ny;
   letters.forEach((e, k) => {                               // 글자: 호버 배치(KIM↔YUJIN) + 아래로 내려간 거리
-    if (swapS > 0) {
+    if (Math.abs(swapS) > 1e-4) {                           // 스프링이 0 밑으로도 잠깐 내려가므로 절댓값으로 (0 일 때만 CSS 기본값)
       const P = NAME_A[k], Q = NAME_B[k];
       e.style.left = lerp(P[0], Q[0], swapS) + "px"; e.style.bottom = lerp(P[1], Q[1], swapS) + "px";
       e.style.width = lerp(P[2], Q[2], swapS) + "px"; e.style.height = lerp(P[3], Q[3], swapS) + "px";
@@ -411,21 +411,33 @@ function render(q) {                                        // q: --s1stepEase �
   });
 }
 
-// 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다
-let swapS = 0, swapU = 0, swapTo = 0, swapRaf = 0, swapLast = 0, swapEase = null;
+/* ── 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다 ──
+ *  이징이 아니라 **스프링**이다 (네모박스를 놓았을 때와 같은 식, box.js springAt) — 목표를 한 번 살짝 지나쳤다 돌아와서 "또잉" 한다.
+ *  그래서 swapS 는 0~1 을 넘나든다: 1 을 넘으면 YUJIN 크게보다 조금 더 커졌다 돌아오고, 0 밑으로 내려가면 KIM 쪽으로 그만큼.
+ *  --s1swap 은 가라앉는 데 걸리는 시간, --s1swapDamp 는 넘치는 정도(1 = 안 넘침, 낮을수록 많이 넘침) */
+let swapS = 0, swapTo = 0, swapFrom = 0, swapRaf = 0, swapT0 = 0, swapDamp = 0.6, swapFreq = 9.5;
+function swapSpring(ms) {                                    // 1 → 0 (처음 속도 0). damp < 1 이면 0 을 한 번 지나쳤다 돌아옴
+  const x = ms / 1000, om = swapFreq, z = swapDamp;
+  if (z >= 1) return (1 + om * x) * Math.exp(-om * x);
+  const od = om * Math.sqrt(1 - z * z);
+  return Math.exp(-z * om * x) * (Math.cos(od * x) + (z * om / od) * Math.sin(od * x));
+}
 function swapTick(now) {
-  const dt = Math.max(0, Math.min(50, now - swapLast)); swapLast = now;
-  const ms = (parseFloat(getComputedStyle(stage).getPropertyValue('--s1swap')) || 0.7) * 1000;
-  swapU = swapTo > swapU ? Math.min(swapTo, swapU + dt / ms) : Math.max(swapTo, swapU - dt / ms);
-  swapS = swapEase(swapU);
+  const f = swapSpring(now - swapT0);
+  swapS = swapTo + (swapFrom - swapTo) * f;
+  const done = now - swapT0 > 200 && Math.abs(f) < 1e-3;
+  if (done) swapS = swapTo;
   if (!raf) { render(eased(pos)); renderBody(pos); }         // 휠 시퀀스가 돌고 있으면 그쪽 tick 이 같이 그림
-  swapRaf = swapU !== swapTo ? requestAnimationFrame(swapTick) : 0;
+  swapRaf = done ? 0 : requestAnimationFrame(swapTick);
 }
 function setSwap(v) {
   if (swapTo === v) return;
-  swapTo = v;
-  swapEase = swapEase || easeFn('--s1stepEase');
-  if (!swapRaf) { swapLast = performance.now(); swapRaf = requestAnimationFrame(swapTick); }
+  const cs = getComputedStyle(stage);
+  swapDamp = Math.min(1, Math.max(0.05, parseFloat(cs.getPropertyValue('--s1swapDamp')) || 0.6));
+  const T = Math.max(0.05, parseFloat(cs.getPropertyValue('--s1swap')) || 0.7);
+  swapFreq = 4 / (swapDamp * T);                             // 가라앉는 시간 T 에서 거꾸로 뽑음 (4 / (z·ω) ≈ 정착 시간)
+  swapFrom = swapS; swapTo = v; swapT0 = performance.now();  // 돌아오는 중에 다시 올리면 그 자리에서 이어서
+  if (!swapRaf) swapRaf = requestAnimationFrame(swapTick);
 }
 function clear() {                                          // 위치 0 — 인라인 지우고 CSS 값으로
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
@@ -460,8 +472,9 @@ function play(d) {
   if (dir === 0 && performance.now() < lockUntil) return;
   if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js).
                                                              // 휠을 올리면 한 단계씩 되돌아가고, 다 되돌아간 뒤 그다음 휠에 퇴장이 되감김
-    const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : !gridMorphed() ? morphGrid() : showAbout())
-                     : (cvShown() ? closeCv() : aboutShown() ? hideAbout() : gridMorphed() ? unmorphGrid() : boxCleared() ? unclearBox() : hideBox());
+    // 마지막 휠은 격자 가로줄 갈아끼우기와 ABOUT ME 를 **같이** 돌린다 — 둘을 따로 두면 선만 바뀌는 빈 구간이 생겨서
+    const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : Math.max(morphGrid(), showAbout()))
+                     : (cvShown() ? closeCv() : aboutShown() || gridMorphed() ? Math.max(hideAbout(), unmorphGrid()) : boxCleared() ? unclearBox() : hideBox());
     if (ms) lockUntil = performance.now() + ms + 300;         // 같은 휠 동작(관성)이 이어서 되감기지 않게
     return;
   }

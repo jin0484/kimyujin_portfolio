@@ -16,7 +16,8 @@
 
 /* 네모박스 — 격자 왼쪽 아래 칸(284 × 236)에 붙어 있음. 크기·등장은 box.js 가 인라인으로.
    --s1boxIn: 휠로 나타나는 시간(ease-in-out) · --s1boxEase · --s1boxDamp: 놓았을 때 튕김(낮을수록 많이 넘침, 1 = 안 넘침) · --s1boxFreq: 돌아오는 빠르기 */
-#s1stage { --s1boxIn: .6s; --s1boxEase: cubic-bezier(.45, 0, .55, 1); --s1boxDamp: .7; --s1boxFreq: 12 }
+#s1stage { --s1boxIn: .6s; --s1boxEase: cubic-bezier(.45, 0, .55, 1); --s1boxDamp: .7; --s1boxFreq: 12; --s1boxHint: .25s }
+/* --s1boxHint: 박스가 다 나온 직후 혼자 한 번 커졌다 돌아오는 시간 — 끌 수 있다는 힌트. 0 이면 안 함 (box.js hintT0) */
 #s1box {
   position: absolute; left: 60px; bottom: 60px; width: 284px; height: 236px; z-index: 1;
   background: #D9D9D9; overflow: hidden; display: none;
@@ -46,7 +47,7 @@
    왼쪽 아래 바깥에서 90° 누운 채로 들어와 제자리에서 바로 선다. 자리·크기·회전은 about.js 가 인라인으로
    (격자 높이에 맞춰 통째로 배율 — 글자는 안 눌리고, ABOUT 이 격자 위선부터 아래선까지 꽉 참).
    --s1about: 도는 시간 (Figma 표는 0.4초 → 사용자가 1.5배 = 0.6 → 다시 2배 = 1.2초) */
-#s1stage { --s1about: 1.2s; --s1aboutEase: cubic-bezier(.5, .2, .5, .8) }
+#s1stage { --s1about: 1.2s; --s1aboutHold: .8s; --s1aboutEase: cubic-bezier(.5, .2, .5, .8) }   /* --s1aboutHold: 같은 휠에 시작한 격자 가로줄이 지워지는 걸 이만큼 보고 나서 돌기 시작 */
 #s1about, #s1stage img#s1me { position: absolute; display: none; left: 60px; top: 60px; will-change: transform }   /* 위 #s1stage img 의 display: block 을 이기려고 ME 는 id 를 겹쳐 씀 */
 #s1about.on, #s1stage img#s1me.on { display: block }
 #s1about img { left: 0; top: 0; width: 100%; height: 100% }   /* 다섯 장이 완전히 겹쳐 있고 clip-path 로 한 글자씩만 보인다 (about.js BAND) */
@@ -54,18 +55,19 @@
 #s1about img:focus-visible, #s1cv .blk:focus-visible { outline: 2px solid var(--main); outline-offset: 4px }
 
 /* ── ABOUT ME 클릭 — 글자 자리에 들어오는 이력 (Figma "클릭 이벤트" 162:1968) ──
-   글자가 왼쪽에서 오른쪽으로 지워지고, 조금 뒤 같은 자리에 이력이 같은 방향으로 그려진다 (4번째 휠 가로줄과 같은 어법).
-   --s1cvErase: 글자 지워지는 시간
-   --s1cvDelay: 지워지기 시작한 뒤 이력이 그려지기 시작할 때까지 · --s1cvDraw: 이력 그려지는 시간 (한 자리에 Delay + Draw) */
-#s1stage { --s1cvErase: .6s; --s1cvDelay: .35s; --s1cvDraw: .8s }
+   글자가 왼쪽에서 오른쪽으로 지워지고, 조금 뒤 같은 자리에 이력이 **워드팝**(한 단어씩 페이드 없이 톡톡)으로 들어온다.
+   --s1cvErase: 글자 지워지는 시간 · --s1cvDelay: 지워지기 시작한 뒤 이력이 뜨기 시작할 때까지
+   --s1popStep: 단어 하나에서 다음 단어로 (말하는 리듬) · --s1popBar: SKILLS 막대가 차오르는 · 사진이 쓸려 들어오는 시간 */
+#s1stage { --s1cvErase: .6s; --s1cvDelay: .35s; --s1popStep: .045s; --s1popBar: .35s }
 #s1cv { position: absolute; inset: 0; display: none; pointer-events: none }
 #s1cv.on { display: block }
-#s1cv .blk { position: absolute; transform-origin: 0 0; clip-path: inset(0 100% 0 0); pointer-events: auto; cursor: pointer }   /* 덩이를 누르면 그 자리만 다시 글자로 */
+#s1cv .blk { position: absolute; transform-origin: 0 0; pointer-events: auto; cursor: pointer }   /* 덩이를 누르면 그 자리만 다시 글자로 */
+#s1cv span { visibility: hidden }   /* 워드팝 — about.js 가 제 차례에 켠다 (페이드 없음) */
 #s1cv p { position: absolute; margin: 0; white-space: nowrap; font-family: 'Pretendard', var(--grot) }
 #s1cv .hd { left: 0; font-weight: 600; font-size: 24px; line-height: 29px; color: #738B5B }   /* 김유진 · EDUCATION · ACTIVITIES · SKILLS */
 #s1cv .tx { font-weight: 500; font-size: 16px; line-height: 19px; color: #6C6C6C }
-#s1cv .bar { position: absolute; left: 115px; width: 183px; height: 6px; background: #fff }    /* SKILLS 막대 — 흰 바탕에 초록만큼 참 */
-#s1cv .bar div { position: absolute; left: 0; top: 0; height: 100%; background: var(--main) }
+#s1cv .bar { position: absolute; left: 115px; width: 0; height: 6px; background: #fff; overflow: hidden }   /* SKILLS 막대 — 흰 바탕과 초록이 같이 왼쪽에서 그려짐 (about.js BAR_W) */
+#s1cv .bar div { position: absolute; left: 0; top: 0; width: 0; height: 100%; background: var(--main) }
 #s1cv img { position: absolute; left: 0; top: 0; width: 135px; height: 158px }                 /* T 자리에 들어오는 사진 */
 
 #s1yearclip { position: absolute; left: 1574px; top: 60px; width: 286px; height: 25px; overflow: hidden }   /* 2026 PORTFOLIO — 격자 윗선(60)에 맞춘 창 */
@@ -108,9 +110,14 @@
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    퇴장(아래로 내려감)은 stage1.js 의 FRAMES 가 인라인 transform 으로 */
-#s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; overflow: hidden; pointer-events: none }   /* 글자 영역이 노트북 클릭을 가리지 않게 */
+/* 창 크기는 Figma 값 그대로 두고(kimRows 가 이 높이로 초록 글을 흘린다) **위쪽만** 열어둔다 —
+   호버 스프링이 목표를 지나칠 때 글자가 378 보다 커지는데, overflow: hidden 이면 그만큼 윗변이 잘린다.
+   아래·좌우는 그대로 창에서 자름(퇴장 때 글자가 아래로 사라져야 하므로) */
+#s1name { position: absolute; left: 61px; bottom: 60px; width: 1798px; height: 378px; pointer-events: none; clip-path: inset(-240px 0 0 0) }   /* 글자 영역이 노트북 클릭을 가리지 않게 */
 #s1name img { pointer-events: auto }   /* 글자 자체만 호버를 받음 — KIM↔YUJIN 배치 (stage1.js setSwap). 노트북(z-index 2)은 그대로 위 */
-#s1stage { --s1swap: .7s }             /* 호버로 KIM↔YUJIN 이 바뀌는 시간 (이징은 --s1stepEase) */
+/* 호버로 KIM↔YUJIN 이 바뀌는 시간과 튕김 — 네모박스를 놓았을 때와 같은 스프링이라 목표를 한 번 지나쳤다 돌아온다("또잉").
+   --s1swapDamp 1 = 안 넘침 · 낮을수록 많이 넘침(.6 이면 약 9% 더 커졌다 돌아옴) */
+#s1stage { --s1swap: .7s; --s1swapDamp: .6 }
 /* 창 기준 좌표 = Figma 좌표 − (61, 60) */
 .s1-k  { left: 0px;        bottom: 0.14px; width: 249.138px; height: 370.86px }
 .s1-i  { left: 301.024px;  bottom: 0.18px; width: 56.441px;  height: 370.817px }

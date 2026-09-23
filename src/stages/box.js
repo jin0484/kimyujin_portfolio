@@ -12,6 +12,9 @@
  *   노트북  — 박스 오른변이 노트북 왼끝을 넘으면 오른쪽 아래 기준으로 작아짐 (폭 = 격자 오른끝 − 박스 오른변)
  * 좌표는 Figma 격자(1800 × 960) 기준. 세로는 무대 높이에 맞춰 늘어나므로 그릴 때 sy 를 곱한다.
  *
+ * 등장이 끝나면 한 번 "숨쉰다" — 혼자 살짝 커졌다 스프링으로 돌아온다(--s1boxHint). 끌 수 있다는 걸 알리는 힌트라
+ * 놓았을 때와 똑같은 움직임을 쓴다. 0 으로 두면 안 함.
+ *
  * 3번째 휠(Figma "3번째 휠" 152:1046, 0.6초): 박스는 왼쪽 아래 기준, 초록 글상자는 오른쪽 위 기준으로 같은 비율로 작아져 사라짐.
  *   글상자 폭이 줄어드는 만큼 글이 다시 조판된다. 휠 올리면 반대로.
  */
@@ -41,7 +44,9 @@ let shown = false, u = 0, uTo = 0;          // u: 등장 진행(이징 전, 0~1)
 let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록 글이 사라지는 진행(이징 전, 0~1)
 let drag = null, spring = null, raf = 0, lastT = 0;
 let ease = null, inMs = 600, damp = 0.7, freq = 12;
-let gms = 0, gTo = 0;                       // 4번째 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
+let hintT0 = 0, hintMs = 250;               // 등장 직후 한 번 커지는 힌트 (이 뒤에 스프링으로 복귀)
+const HINT_W = 30, HINT_T = 26;             // 힌트로 커지는 양(px) — 격자 선 하나가 밀릴 만큼만
+let gms = 0, gTo = 0;                       // 마지막 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
 let lineEase = null, outMs = 200, gapMs = 200, lnMs = 300;
 const lineTotal = () => Math.max(outMs, gapMs + lnMs);
 
@@ -60,6 +65,7 @@ function readVars() {
   outMs = Math.max(1, (parseFloat(css('--s1lineOut')) || 0.2) * 1000);
   gapMs = Math.max(0, (parseFloat(css('--s1lineGap')) || 0.2) * 1000);
   lnMs = Math.max(1, (parseFloat(css('--s1lineIn')) || 0.3) * 1000);
+  hintMs = Math.max(0, (parseFloat(css('--s1boxHint')) || 0) * 1000);
 }
 
 /* ── 4번째 휠 (Figma 167:2190) — 원래 가로선 3개는 오른끝이 왼쪽으로 빠지며 사라지고(폭 1798 → 0),
@@ -163,6 +169,7 @@ function tick(now) {
     u = uTo > u ? Math.min(uTo, u + dt / inMs) : Math.max(uTo, u - dt / inMs);
     busy = u !== uTo;
     if (u === 0 && uTo === 0) { shown = false; box.classList.remove('on'); laptop.style.transform = laptop.style.visibility = ''; }
+    if (u === 1 && uTo === 1 && hintMs > 0 && !drag && !spring) hintT0 = now;   // 다 나왔으면 한 번 숨쉬기
   }
   if (v !== vTo) {                                           // 3번째 휠: 사라짐 / 되돌아옴
     v = vTo > v ? Math.min(vTo, v + dt / inMs) : Math.max(vTo, v - dt / inMs);
@@ -173,6 +180,12 @@ function tick(now) {
     gms = gTo > gms ? Math.min(gTo, gms + dt) : Math.max(gTo, gms - dt);
     paintLines();
     busy = busy || gms !== gTo;
+  }
+  if (hintT0) {                                              // 등장 직후 힌트 — 살짝 커졌다가
+    const k = ease ? ease(clamp((now - hintT0) / hintMs, 0, 1)) : 1;
+    w = W0 + HINT_W * k; t = T0 - HINT_T * k;
+    if (k >= 1) { hintT0 = 0; spring = { t0: now, w: HINT_W, t: -HINT_T, f: 1, d0: derive(w, t) }; }   // 놓았을 때와 같은 스프링으로 복귀
+    busy = true;
   }
   if (spring) {                                              // 놓은 뒤 복귀
     const el = now - spring.t0, f = springAt(el);
@@ -201,7 +214,7 @@ export function showBox() {
 export const boxCleared = () => vTo === 1;
 export function clearBox() {
   if (!shown || u < 1 || vTo === 1 || drag) return 0;
-  readVars(); spring = null; w = W0; t = T0; hint(false);
+  readVars(); spring = null; hintT0 = 0; w = W0; t = T0; hint(false);
   vTo = 1; kick();
   return inMs * (1 - v);
 }
@@ -226,7 +239,7 @@ export function unmorphGrid() {
 }
 export function hideBox() {
   if (!shown || uTo === 0 || drag || vTo !== 0 || v > 0) return 0;
-  spring = null; w = W0; t = T0; render();                   // 튕기는 중이었으면 제자리로 놓고 들어감
+  spring = null; hintT0 = 0; w = W0; t = T0; render();       // 튕기는 중이었으면 제자리로 놓고 들어감
   uTo = 0; kick();
   return inMs * u;
 }
@@ -265,7 +278,7 @@ export function initBox(squeezeBody) {
     if (!shown || uTo !== 1 || u < 1 || v > 0 || vTo !== 0 || e.button !== 0) return;   // 3번째 휠로 사라지는 중엔 못 잡음
     e.preventDefault();
     box.setPointerCapture(e.pointerId);
-    spring = null;                                           // 튕기는 중에 다시 잡으면 그 자리에서 이어서
+    spring = null; hintT0 = 0;                               // 튕기는 중(또는 힌트 중)에 잡으면 그 자리에서 이어서
     hint(false);                                             // DRAG ↗ 안내 — 잡는 동안은 숨김, 놓고 제자리로 돌아오면 다시
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t };
     box.classList.add('grab');
