@@ -18,7 +18,7 @@
  */
 import { prepareWithSegments, layoutWithLines, layoutNextLine } from '@chenglou/pretext';
 import { DUMMY, DUMMY2 } from '../data.js';
-import { $, bezier } from '../utils.js';
+import { $, bezier, tempo } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
 import { syncGlass, reserveGlass } from '../glass.js';
 import { syncBits } from '../glassBits.js';
@@ -542,10 +542,10 @@ function tick(now) {
   const i = dir > 0 ? Math.floor(pos) : Math.ceil(pos) - 1;            // 지금 지나는 구간 (프레임 i → i+1)
   const ms = FRAMES[Math.min(N, Math.max(1, i + 1))].ms || stepMs();
   const before = pos;
-  pos += dir * dt / ms * (jumpTo >= 0 ? JUMP_SPEED : 1);             // 섹션 이동 중이면 빨리
+  pos += dir * dt / ms * (jumpTo >= 0 ? JUMP_EXIT * tempo.k : 1);    // 섹션 이동 중이면 빨리
   // 정지점: 진행 방향으로 처음 만나는 정지점을 넘으면 거기서 멈춤
   const stop = dir > 0 ? STOPS.find((st) => st > before && st <= pos) : [...STOPS].reverse().find((st) => st < before && st >= pos);
-  if (stop !== undefined) { pos = stop; dir = 0; lockUntil = now + 400; }   // 같은 휠 동작이 정지점을 뚫지 않게 잠깐 잠금
+  if (stop !== undefined) { pos = stop; dir = 0; lockUntil = now + 400 / tempo.k; }   // 같은 휠 동작이 정지점을 뚫지 않게 잠깐 잠금
   render(eased(pos));                                                 // 글자·라벨·노트북 (--s1stepEase)
   renderBody(pos);                                                    // 본문 (이징 전 위치 — 안에서 --s1bodyEase 를 건다)
   paintScroll();                                                      // 아래 여백 막대
@@ -561,7 +561,7 @@ function play(d) {
     // 마지막 휠은 격자 가로줄 갈아끼우기와 ABOUT ME 를 **같이** 돌린다 — 둘을 따로 두면 선만 바뀌는 빈 구간이 생겨서
     const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : Math.max(morphGrid(), showAbout()))
                      : (cvShown() ? closeCv() : aboutShown() || gridMorphed() ? Math.max(hideAbout(), unmorphGrid()) : boxCleared() ? unclearBox() : hideBox());
-    if (ms) { lockUntil = performance.now() + ms + 300; followBar(ms); }   // 같은 휠 동작(관성)이 이어서 되감기지 않게
+    if (ms) { const t = ms / tempo.k; lockUntil = performance.now() + t + 300 / tempo.k; followBar(t); }   // 같은 휠 동작(관성)이 이어서 되감기지 않게. ms 는 평소 빠르기 기준이라 섹션 이동 중엔 나눔
     return;
   }
   if ((d > 0 && pos >= N) || (d < 0 && pos <= 0)) return;
@@ -581,24 +581,26 @@ function play(d) {
 }
 /* ── 섹션 이동 — 스크롤 막대 위 이름(#s1nav)을 누르면 그 섹션까지 휠을 대신 한 단계씩 굴린다 ──
  *  단계: 0 첫 화면 · 1 퇴장 끝 · 2 네모박스(WORK) · 3 박스·글 사라짐 · 4 ABOUT ME. 앞 단계가 끝나 잠금(lockUntil)이 풀리면 다음 단계.
- *  가는 동안엔 제일 긴 KIM YUJIN 퇴장만 JUMP_SPEED 배로 빨리 돈다. 사용자가 휠·키·터치를 쓰면 그 자리에서 멈춤(userPlay) */
-const JUMP_SPEED = 2;
+ *  가는 동안엔 전부 JUMP_TEMPO 배로 빨리 돈다(tempo — box.js · about.js 연출과 단계 사이 잠금까지). 제일 긴 KIM YUJIN 퇴장은 거기에 JUMP_EXIT 배를 더.
+ *  처음부터 ABOUT ME 까지 JUMP_TEMPO 1 이면 약 9초, 1.5 면 약 6초 (2026-09-24 "너무 느리다" → 1.5).
+ *  사용자가 휠·키·터치를 쓰면 그 자리에서 멈추고 평소 빠르기로(userPlay) */
+const JUMP_TEMPO = 1.5, JUMP_EXIT = 2;
 let jumpTo = -1;
 const stepNow = () => pos < N ? 0 : !boxShown() ? 1 : !boxCleared() ? 2 : !(aboutShown() || gridMorphed()) ? 3 : 4;
 function jumpTick() {
   if (jumpTo < 0) return;
   const cur = stepNow();
-  if (cur === jumpTo && !dir) { jumpTo = -1; paintScroll(); return; }
+  if (cur === jumpTo && !dir && performance.now() >= lockUntil) { jumpTo = -1; tempo.k = 1; paintScroll(); return; }   // 마지막 단계 연출이 끝날 때까지 빠르기 유지
   if (!dir && performance.now() >= lockUntil) play(jumpTo > cur ? 1 : -1);   // ABOUT ME 에서 이력이 열려 있으면 뒤로 첫 단계는 이력 닫기
   requestAnimationFrame(jumpTick);
 }
 function jump(step) {
   const idle = jumpTo < 0;
-  jumpTo = step;
+  jumpTo = step; tempo.k = JUMP_TEMPO;
   paintScroll();
   if (idle) requestAnimationFrame(jumpTick);
 }
-function userPlay(d) { jumpTo = -1; play(d); }              // 휠·키·터치 — 섹션 이동 중이었으면 거기서 멈추고 사용자 손을 따름
+function userPlay(d) { jumpTo = -1; tempo.k = 1; play(d); }              // 휠·키·터치 — 섹션 이동 중이었으면 거기서 멈추고 사용자 손을 따름
 const LINE = 26, LINE_MS = 38;   // 본문 행간(px) · 한 줄 드러나는 간격(ms)
 export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로

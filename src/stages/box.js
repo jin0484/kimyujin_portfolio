@@ -20,7 +20,7 @@
  *   박스를 키워 둔 채였으면 **그 크기에서** 줄어들고, 밀려났던 선·글·노트북은 줄어드는 박스 변을 따라 제자리로 돌아온다
  *   (휠 올려 박스가 들어갈 때도 같은 식)
  */
-import { $, bezier } from '../utils.js';
+import { $, bezier, tempo } from '../utils.js';
 import { BOX_SHOTS } from '../data.js';
 
 const stage = $('#s1stage'), grid = $('#s1grid'), box = $('#s1box'), laptop = $('#s1laptop');
@@ -172,7 +172,7 @@ function render() {
 }
 
 function tick(now) {
-  const dt = Math.max(0, Math.min(50, now - lastT)); lastT = now;
+  const dt = Math.max(0, Math.min(50, now - lastT)) * tempo.k; lastT = now;   // tempo: 섹션 이동 중이면 빨리 (utils.js)
   let busy = false;
   if (u !== uTo) {                                           // 등장 / 퇴장
     u = uTo > u ? Math.min(uTo, u + dt / inMs) : Math.max(uTo, u - dt / inMs);

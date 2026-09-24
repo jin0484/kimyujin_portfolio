@@ -22,7 +22,7 @@
  * 세로가 짧은 화면에서는 격자가 눌리는 만큼(sy) 글자도 이력도 통째로 같은 비율로 작아진다 — 글자가 눌리지 않고,
  * ABOUT 은 언제나 격자 위선에서 아래선까지 꽉 찬다. 가로 자리도 같은 비율이라 ABOUT·ME 사이 간격도 그대로.
  */
-import { $, bezier } from '../utils.js';
+import { $, bezier, tempo } from '../utils.js';
 import { CV } from '../data.js';
 
 const stage = $('#s1stage'), about = $('#s1about'), me = $('#s1me'), cv = $('#s1cv');
@@ -175,7 +175,7 @@ function paintCv() {
 }
 
 function tick(now) {
-  const dt = Math.max(0, Math.min(50, now - lastT)); lastT = now;
+  const dt = Math.max(0, Math.min(50, now - lastT)) * tempo.k; lastT = now;   // tempo: 섹션 이동 중이면 빨리 (utils.js)
   let busy = false;
   if (am !== amTo) {
     am = amTo > am ? Math.min(amTo, am + dt) : Math.max(amTo, am - dt);
