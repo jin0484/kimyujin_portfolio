@@ -83,13 +83,23 @@
 #s1laptop .shot { position: absolute; inset: 0; overflow: hidden; transform: scaleX(-1) }   /* Figma 에서 좌우 반전됨 */
 #s1laptop .shot img { position: absolute; left: -12.74%; top: -13.91%; width: 123.73%; height: 129.19% }   /* Figma 크롭 그대로 */
 /* CLICK — Figma "click" 프레임(110:277) 글자 좌표, 화면 기울기(0.59°)만큼 회전. 깜빡임은 --s1blink */
-#s1laptop .click { position: absolute; inset: 0; animation: s1blink var(--s1blink, 1.1s) steps(1, end) infinite }
+/* 글자 다섯 개를 딱 감싸는 상자(142.19,73 ~ 245.28,104.19) — 노트북을 누르면 화면과 같이 커졌다가, work.html 로 넘어간 뒤
+   그 자리에서 사라진다(view-transition-name lapclick 이라 한 장으로 떼어져 페이드, laptopZoom.js · work.html) */
+#s1laptop .click { position: absolute; left: 142.19px; top: 73px; width: 103.09px; height: 31.19px; view-transition-name: lapclick;
+                   animation: s1blink var(--s1blink, 1.1s) steps(1, end) infinite }
 #s1laptop .click img { position: absolute; transform: rotate(.59deg); transform-origin: center }
-#s1laptop .click .c1 { left: 142.19px; top: 73px;    width: 16.09px; height: 18.57px }
-#s1laptop .click .l  { left: 166.44px; top: 74.93px; width: 12.76px; height: 20.21px }
-#s1laptop .click .i  { left: 186.50px; top: 76.81px; width: 5.23px;  height: 20.13px }
-#s1laptop .click .c2 { left: 199.04px; top: 78.61px; width: 19.46px; height: 21.12px }
-#s1laptop .click .k  { left: 225.79px; top: 80.56px; width: 19.49px; height: 23.63px }
+#s1laptop .click .c1 { left: 0;       top: 0;      width: 16.09px; height: 18.57px }
+#s1laptop .click .l  { left: 24.25px; top: 1.93px; width: 12.76px; height: 20.21px }
+#s1laptop .click .i  { left: 44.31px; top: 3.81px; width: 5.23px;  height: 20.13px }
+#s1laptop .click .c2 { left: 56.85px; top: 5.61px; width: 19.46px; height: 21.12px }
+#s1laptop .click .k  { left: 83.6px;  top: 7.56px; width: 19.49px; height: 23.63px }
+/* 노트북 클릭 → 화면 가득 커지며 WORK 로 (laptopZoom.js). --lapZoom: 커지는 시간 · --lapZoomEase: 이징
+   그동안 격자 바깥 여백도 work 와 같은 검정으로, 유리 링·SCROLL DOWN 은 먼저 비켜준다 */
+#s1 { --lapZoom: .9s; --lapZoomEase: cubic-bezier(.65, 0, .35, 1) }
+/* 여백만 덮는 검은 테 — 바탕 전체를 어둡게 하면 커지는 도중 격자 안까지 다크 모드처럼 뒤집혀 보여서 테두리만. 노트북이 반쯤 커진 뒤부터 */
+#s1::after { content: ''; position: absolute; inset: 0; border: 3.125vw solid #0c0c0c; pointer-events: none; opacity: 0 }
+html.lapzoom #s1::after { opacity: 1; transition: opacity calc(var(--lapZoom) * .55) calc(var(--lapZoom) * .45) ease-in }
+html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity .25s }
 @keyframes s1blink { 0%, 55% { opacity: 1 } 55.01%, 100% { opacity: 0 } }
 /* 화면(검은 부분)의 자리 — 노트북 그림의 어두운 픽셀을 재서 뽑았다. 화면이 기울어져 있어 바깥 사각형을 그대로 쓰면
    모서리에서 흰 몸통을 물길래 안쪽으로 13%씩 줄였다(그 사각형의 98.9%가 검정).
@@ -110,6 +120,10 @@
    span 마다 will-change 를 걸면 합성 레이어가 단어 수만큼(1000개 넘게) 생겨 되레 끊기므로, 겹치는 "벌" 에만 건다 */
 #s1body .ts { position: absolute; inset: 0; will-change: opacity; contain: layout style paint }
 #s1body .ts span { position: absolute; left: 0; top: 0; white-space: pre }
+/* 첫 화면 본문(여백 글)은 무채색 — 색은 M 만 갖는다(2026-09-24 피드백 "M 강조"). 바뀐 글(SPOILER, .hv)은 그대로 초록.
+   --s1bodyInk: 본문 글자색. 예전 초록(#C3DCA8)과 밝기를 비슷하게 맞춰서 화면의 무게는 그대로 */
+#s1 { --s1bodyInk: #BDBDB8 }
+#s1body .ts:not(.hv) { color: var(--s1bodyInk) }
 /* 오른쪽 위 바뀐 글(SPOILER) — 단어에 호버하면 초록 배경 + 흰 글자. 배경은 box-shadow 로 좌우 4px 넓혀서 글자 자리는 안 움직임 */
 #s1body .ts.hv span:hover { background: var(--main); color: #fff; box-shadow: -4px 0 0 var(--main), 4px 0 0 var(--main); z-index: 1 }
 
@@ -140,12 +154,15 @@
 #s1scroll.on i { animation: s1bob var(--s1scrollBob) var(--s1scrollIn) ease-in-out infinite }
 @keyframes s1bob { 0%, 100% { transform: none } 50% { transform: translateY(-.16vw) } }   /* 뜨는 폭 — 1920 에서 3px */
 
-/* 막대 — 글자와 같은 폭, 글자 한가운데 줄에 겹쳐 둔다. 평소엔 납작하게 접혀 있다가(scaleY 0) 글자가 눌릴 때 선다 */
+/* 막대 — 처음엔 글자와 같은 폭, 글자 한가운데 줄에 겹쳐 둔다. 평소엔 납작하게 접혀 있다가(scaleY 0) 글자가 눌릴 때 서고,
+   선 다음엔 옆으로 --s1navW 까지 넓어져 그 위에 섹션 이름(#s1nav)이 뜬다. 되돌아올 땐 기다리지 않고 바로 좁아지며 접힌다 */
+#s1 { --s1navW: 22vw }
 #s1scroll b {
-  position: absolute; left: 0; right: 0; top: 50%; height: .156vw; margin-top: -.078vw;
-  background: rgba(35, 35, 35, .18); transform: scaleY(0);
-  transition: transform calc(var(--s1scrollSquash) * .45) cubic-bezier(.2, .7, .3, 1);
+  position: absolute; left: 50%; width: 100%; top: 50%; height: .156vw; margin-top: -.078vw;
+  background: rgba(35, 35, 35, .18); transform: translateX(-50%) scaleY(0);
+  transition: transform calc(var(--s1scrollSquash) * .45) cubic-bezier(.2, .7, .3, 1), width .35s cubic-bezier(.4, 0, .3, 1);
 }
+#s1scroll b::after { content: ''; position: absolute; left: 50%; top: 50%; width: 1px; height: .42vw; margin: -.21vw 0 0 -.5px; background: rgba(35, 35, 35, .45) }   /* 가운데 눈금 = WORK */
 #s1scroll u { display: block; width: 0; height: 100%; background: #232323; text-decoration: none }   /* 휠 진행만큼 채워짐 (stage1.js paintScroll) */
 #s1scroll.bar i { animation: s1squash var(--s1scrollSquash) cubic-bezier(.4, 0, .3, 1) forwards }
 #s1scroll.unbar i { animation: s1squash var(--s1scrollSquash) cubic-bezier(.4, 0, .3, 1) reverse }   /* 첫 화면으로 되돌아올 때 — 막대에서 글자로 도로 펴짐 */
@@ -154,7 +171,29 @@
   20%  { transform: scaleY(1.22) scaleX(.93) }                          /* 눌리기 직전 위로 늘어남 */
   100% { transform: scaleY(0) scaleX(1.22) }                            /* 납작해지며 옆으로 퍼짐 */
 }
-#s1scroll.bar b { transform: scaleY(1); transition-delay: calc(var(--s1scrollSquash) * .55) }   /* 글자가 거의 다 눌린 뒤에 선다 */
+#s1scroll.bar b {                   /* 글자가 거의 다 눌린 뒤에 서고, 다 서면 옆으로 넓어진다 */
+  transform: translateX(-50%) scaleY(1); width: var(--s1navW);
+  transition: transform calc(var(--s1scrollSquash) * .45) cubic-bezier(.2, .7, .3, 1) calc(var(--s1scrollSquash) * .55),
+              width .5s cubic-bezier(.65, 0, .35, 1) calc(var(--s1scrollSquash) * .9);
+}
+
+/* 섹션 이동 — 넓어진 막대 위, 막대 진행도 자리(0 · 50% · 100%)에 이름. 누르면 그 섹션까지 휠을 대신 굴린다 (stage1.js jumpTo).
+   막대가 다 넓어진 뒤 한 번에 뜨고(페이드 없음 — SCROLL DOWN 과 같은 결), 되돌아올 땐 바로 사라진다. 지금 있는 섹션은 진하게(.on) */
+#s1nav {
+  position: absolute; left: 50%; top: 0; width: var(--s1navW); height: calc(50% - .36vw); transform: translateX(-50%);
+  visibility: hidden;
+}
+#s1scroll.bar #s1nav { visibility: visible; transition: visibility 0s calc(var(--s1scrollSquash) * .9 + .5s) }
+#s1nav button {
+  position: absolute; bottom: 0; padding: .3vw 0 0; margin: 0; border: 0; background: none; pointer-events: auto;
+  font-family: var(--grot); font-weight: 500; font-size: .625vw; letter-spacing: .12em; line-height: 1; white-space: nowrap;
+  color: rgba(35, 35, 35, .4); transition: color .2s;
+}
+#s1nav button:nth-child(1) { left: 0 }
+#s1nav button:nth-child(2) { left: 50%; transform: translateX(-50%) }
+#s1nav button:nth-child(3) { right: 0 }
+#s1nav button:hover, #s1nav button.on { color: #232323 }
+#s1nav button:focus-visible { outline: 1px solid #232323; outline-offset: 2px }
 
 /* KIM YUJIN — 창(#s1name = Figma 글자 영역 61,642 · 1798×378)에 갇힌 글자들. 기본 배치는 여기(KIM 크게),
    퇴장(아래로 내려감)은 stage1.js 의 FRAMES 가 인라인 transform 으로 */
@@ -185,3 +224,8 @@
 #s1 { --glassY: .3; --glassSize: .9; --glassTube: .26; --glassTilt: 62; --glassSpin: 14; --glassBend: 1; --glassRainbow: 2; --glassTint: .3;
       --glassPush: 2; --glassSwingHz: 1.6; --glassSwingDamp: .12 }
 #s1glass { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform }
+/* 유리 조각 (src/glassBits.js) — J 기둥 위에 뜬 큐브(j 의 점). 재질은 위 링과 같은 --glass* 를 쓴다
+   --bitCube: 큐브 한 변 = J 기둥 굵기 × 이만큼 · --bitCubeGap: 큐브가 J 위로 뜬 거리(기둥 굵기 대비) */
+#s1 { --bitCube: 1.15; --bitCubeGap: .4 }
+.s1bit { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform }
+html.lapzoom .s1bit { opacity: 0; transition: opacity .25s }

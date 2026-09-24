@@ -79,7 +79,10 @@
        무대(#s1stage)는 격자 바깥을 잘라내므로(clip-path) 여기 글자는 무대 밖 형제로 둔다.
        span 은 올라오는 것, i 는 글자(떠다님), b 는 글자가 눌려서 되는 막대(u 가 채워지는 부분) —
        한 요소에 여러 개를 걸면 transform 이 서로 덮어쓴다 -->
-  <div id="s1scroll" aria-hidden="true"><span><i>SCROLL DOWN</i><b><u></u></b></span></div>
+  <div id="s1scroll"><span aria-hidden="true"><i>SCROLL DOWN</i><b><u></u></b></span>
+    <!-- 섹션 이동 — 막대가 서고 옆으로 넓어진 뒤 위에 뜬다. 누르면 그 섹션까지 휠을 대신 굴림 (stage1.js jumpTo). 자리 = 막대 진행도(0 · 50% · 100%) -->
+    <nav id="s1nav" aria-label="섹션 이동"><button type="button" data-step="0">KIM YUJIN</button><button type="button" data-step="2">WORK</button><button type="button" data-step="4">ABOUT ME</button></nav>
+  </div>
 </section>
 
 <script type="module" src="/src/main.js"></script>

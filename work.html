@@ -6,22 +6,19 @@
   <title>Work — 김유진</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=Gothic+A1:wght@300;400;500;700;900&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <!-- 화면 1 노트북 클릭 → 이 페이지가 아래에서 올라오며 기존 화면을 덮음 (브라우저 View Transitions — 없는 브라우저는 그냥 넘어감).
-       head 에 직접 둬야 첫 화면이 그려지기 전에 적용됨. 걸리는 시간: animation 의 .7s -->
+  <!-- 화면 1 노트북 클릭 → 노트북이 화면 가득 커진 뒤(laptopZoom.js) 이 페이지로 (브라우저 View Transitions — 없는 브라우저는 그냥 넘어감).
+       커진 노트북 화면과 이 페이지가 같은 검정이라 바탕은 연출 없이 바로 바꾸고, 커져 있던 노트북 CLICK(view-transition-name lapclick)은
+       이 페이지에 짝이 없어서 그 자리에서 .6초 동안 사라진다. head 에 직접 둬야 첫 화면이 그려지기 전에 적용됨 -->
   <style>
     @view-transition { navigation: auto; }
-    ::view-transition-old(root) { animation: none; }
-    ::view-transition-new(root) { animation: workUp .7s cubic-bezier(.65, 0, .35, 1) both; }
-    @keyframes workUp { from { transform: translateY(100%); } to { transform: none; } }
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+    ::view-transition-group(lapclick) { animation-duration: .6s; animation-timing-function: cubic-bezier(.2, .7, .3, 1); }
   </style>
 </head>
 <body>
 
-<!-- Work 페이지 — Figma "#1"(153:1092): #0c0c0c 바닥에 초록 CLICK 하나.
-     화면 1 노트북 화면에서 깜빡이던 글자가 그대로 커진 것 — 노트북을 클릭하면 이 페이지가 아래에서 올라와 덮는다 -->
-<main id="work" aria-label="Work">
-  <img id="workclick" src="/work/click.svg" alt="CLICK" width="694" height="139">
-</main>
+<!-- Work 페이지 — #0c0c0c 바닥 (노트북 화면 안). 가운데 초록 CLICK 은 2026-09-24 사용자 요청으로 뺐다 — 내용은 앞으로 채울 자리 -->
+<main id="work" aria-label="Work"></main>
 
 <script type="module" src="/src/work.js"></script>
 </body>

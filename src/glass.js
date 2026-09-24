@@ -115,9 +115,10 @@ function paintBack(x0, y0) {
     const asc = bgx.measureText('가').fontBoundingBoxAscent;   // span 상자 윗변 = 글꼴 ascent 위 → 기준선
     for (const g of body.children) {
       if (g.style.display === 'none') continue;                // 안 쓰는 층(겹쳐 갈아끼울 때만 켜짐)
-      const a = parseFloat(g.style.opacity || getComputedStyle(g).opacity);
+      const gs = getComputedStyle(g), a = parseFloat(g.style.opacity || gs.opacity);
       if (!(a > 0)) continue;
       bgx.globalAlpha = a;
+      bgx.fillStyle = gs.color;                                // 층마다 색이 다름 — 여백 글은 무채색, 바뀐 글(SPOILER)은 초록
       for (const w of g.children) {
         const b = w.getBoundingClientRect();
         if (b.right < x0 || b.left > x0 + side || b.bottom < y0 || b.top > y0 + side || !b.width) continue;

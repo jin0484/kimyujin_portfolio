@@ -21,6 +21,7 @@ import { DUMMY, DUMMY2 } from '../data.js';
 import { $, bezier } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
 import { syncGlass, reserveGlass } from '../glass.js';
+import { syncBits } from '../glassBits.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
@@ -47,9 +48,12 @@ function scrollBar(on) {
   if (left > 0) barT = setTimeout(() => scrollEl.classList.add('bar'), left);
   else scrollEl.classList.add('bar');
 }
+const navBtns = [...document.querySelectorAll('#s1nav button')];   // 막대 위 섹션 이름 — KIM YUJIN · WORK · ABOUT ME (아래 jump)
 function paintScroll() {
   const p = (pos / N + boxProgress() + lineProgress()) / SCROLL_STAGES;
   scrollFill.style.width = Math.min(100, Math.max(0, p * 100)) + '%';
+  const st = jumpTo >= 0 ? jumpTo : stepNow(), sec = st >= 4 ? 2 : st >= 2 ? 1 : 0;   // 가는 중이면 가는 곳을 미리 진하게
+  navBtns.forEach((b, i) => b.classList.toggle('on', i === sec));
 }
 let barRaf = 0;                                             // 박스·격자 단계는 저쪽 모듈이 따로 굴려서, 그동안만 따라 그린다
 function followBar(ms) {
@@ -477,6 +481,7 @@ function render(q) {                                        // q: --s1stepEase �
     e.style.transform = "translateY(" + ny + "px)";
   });
   syncGlass();                                              // U 에 걸린 유리 링을 같은 프레임에 맞춤 (glass.js)
+  syncBits();                                               // J 위 유리 큐브도 (glassBits.js)
 }
 
 /* ── 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다 ──
@@ -521,7 +526,7 @@ function clear() {                                          // 위치 0 — 인�
   bodyClip.style.left = bodyClip.style.width = bodyClip.style.height = "";
   body.style.width = ""; year.style.transform = ""; laptop.style.bottom = "";
   for (const e of letters) e.style.transform = "";
-  syncGlass();
+  syncGlass(); syncBits();
   renderBody(0);
 }
 const stepMs = () => (parseFloat(getComputedStyle(stage).getPropertyValue("--s1step")) || 0.5) * 1000;
@@ -537,7 +542,7 @@ function tick(now) {
   const i = dir > 0 ? Math.floor(pos) : Math.ceil(pos) - 1;            // 지금 지나는 구간 (프레임 i → i+1)
   const ms = FRAMES[Math.min(N, Math.max(1, i + 1))].ms || stepMs();
   const before = pos;
-  pos += dir * dt / ms;
+  pos += dir * dt / ms * (jumpTo >= 0 ? JUMP_SPEED : 1);             // 섹션 이동 중이면 빨리
   // 정지점: 진행 방향으로 처음 만나는 정지점을 넘으면 거기서 멈춤
   const stop = dir > 0 ? STOPS.find((st) => st > before && st <= pos) : [...STOPS].reverse().find((st) => st < before && st >= pos);
   if (stop !== undefined) { pos = stop; dir = 0; lockUntil = now + 400; }   // 같은 휠 동작이 정지점을 뚫지 않게 잠깐 잠금
@@ -574,6 +579,26 @@ function play(d) {
   dir = d;
   if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
 }
+/* ── 섹션 이동 — 스크롤 막대 위 이름(#s1nav)을 누르면 그 섹션까지 휠을 대신 한 단계씩 굴린다 ──
+ *  단계: 0 첫 화면 · 1 퇴장 끝 · 2 네모박스(WORK) · 3 박스·글 사라짐 · 4 ABOUT ME. 앞 단계가 끝나 잠금(lockUntil)이 풀리면 다음 단계.
+ *  가는 동안엔 제일 긴 KIM YUJIN 퇴장만 JUMP_SPEED 배로 빨리 돈다. 사용자가 휠·키·터치를 쓰면 그 자리에서 멈춤(userPlay) */
+const JUMP_SPEED = 2;
+let jumpTo = -1;
+const stepNow = () => pos < N ? 0 : !boxShown() ? 1 : !boxCleared() ? 2 : !(aboutShown() || gridMorphed()) ? 3 : 4;
+function jumpTick() {
+  if (jumpTo < 0) return;
+  const cur = stepNow();
+  if (cur === jumpTo && !dir) { jumpTo = -1; paintScroll(); return; }
+  if (!dir && performance.now() >= lockUntil) play(jumpTo > cur ? 1 : -1);   // ABOUT ME 에서 이력이 열려 있으면 뒤로 첫 단계는 이력 닫기
+  requestAnimationFrame(jumpTick);
+}
+function jump(step) {
+  const idle = jumpTo < 0;
+  jumpTo = step;
+  paintScroll();
+  if (idle) requestAnimationFrame(jumpTick);
+}
+function userPlay(d) { jumpTo = -1; play(d); }              // 휠·키·터치 — 섹션 이동 중이었으면 거기서 멈추고 사용자 손을 따름
 const LINE = 26, LINE_MS = 38;   // 본문 행간(px) · 한 줄 드러나는 간격(ms)
 export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
@@ -599,14 +624,17 @@ export function initStage1() {
   // 호버 — KIM 글자에 올리면 KIM 크게, YUJIN 글자에 올리면 YUJIN 크게 (첫 화면에서만)
   letters.forEach((im, k) => im.addEventListener('pointerenter', () => { if (atStart()) setSwap(k < 3 ? 0 : 1); }));
   // 휠 — 캡처 단계에서 받아서 어떤 요소 위에 있든 잡음. deltaMode 가 줄/페이지 단위인 환경(Firefox 등)도 방향만 보면 되므로 그대로
-  window.addEventListener('wheel', (e) => { if (e.deltaY !== 0) play(e.deltaY > 0 ? 1 : -1); }, { passive: true, capture: true });
-  // 키보드 — ↓/PageDown/Space 앞으로, ↑/PageUp 뒤로
+  window.addEventListener('wheel', (e) => { if (e.deltaY !== 0) userPlay(e.deltaY > 0 ? 1 : -1); }, { passive: true, capture: true });
+  // 키보드 — ↓/PageDown/Space 앞으로, ↑/PageUp 뒤로. 섹션 이름 버튼에서 누른 Space 는 버튼 몫
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') play(1);
-    else if (e.key === 'ArrowUp' || e.key === 'PageUp') play(-1);
+    if (e.target.closest && e.target.closest('#s1nav')) return;
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') userPlay(1);
+    else if (e.key === 'ArrowUp' || e.key === 'PageUp') userPlay(-1);
   });
   // 터치 — 세로 스와이프
   let ty = null;
   document.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
-  document.addEventListener('touchmove', (e) => { if (ty == null) return; const d = ty - e.touches[0].clientY; if (Math.abs(d) > 24) { play(d > 0 ? 1 : -1); ty = null; } }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if (ty == null) return; const d = ty - e.touches[0].clientY; if (Math.abs(d) > 24) { userPlay(d > 0 ? 1 : -1); ty = null; } }, { passive: true });
+  // 섹션 이동 — 막대 위 이름
+  navBtns.forEach((b) => b.addEventListener('click', () => jump(+b.dataset.step)));
 }

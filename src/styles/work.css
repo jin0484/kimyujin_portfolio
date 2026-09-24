@@ -1,12 +1,5 @@
 /* ══════════ WORK 페이지 (work.html) — Figma "#1" 153:1092 ══════════
-   #0c0c0c 바닥 한가운데 초록 CLICK 하나. 화면 1 노트북 화면에서 깜빡이던 그 글자가 화면을 꽉 채운 것 —
-   노트북을 누르면 이 페이지가 아래에서 올라와 덮는다 (전환은 work.html head 의 View Transitions).
-   크기는 화면 1 과 같은 규칙으로 1920 기준 비율. Figma 는 693.828 × 138.8 인데 너무 커서 **절반**으로 줄임 —
-   1920 에서 346.9 × 69.4 (693.828 / 2 / 1920 = 18.0684vw · 138.8 / 2 / 1920 = 3.6146vw) */
+   #0c0c0c 바닥 — 화면 1 노트북을 누르면 노트북 화면이 화면 가득 커진 뒤 이 페이지로 넘어온다(laptopZoom.js).
+   가운데 있던 초록 CLICK 은 2026-09-24 사용자 요청으로 뺐다 */
 body { background: #0c0c0c; --cursor: var(--cursorDark) }   /* 화면 전체가 어두우니 커서 기본색부터 초록 — 안 그러면 첫 움직임에서 0.35초 동안 검정이라 안 보인다 */
 #work { position: fixed; inset: 0; background: #0c0c0c; display: grid; place-items: center; clip-path: inset(var(--pad)) }   /* 화면 1 과 같은 규칙 — 격자 바깥은 잘라냄 */
-#workclick { display: block; width: 18.0684vw; height: 3.6146vw; animation: wkblink var(--wkblink, 1.1s) steps(1, end) infinite }
-@keyframes wkblink { 0%, 55% { opacity: 1 } 55.01%, 100% { opacity: 0 } }   /* 화면 1 노트북 화면의 CLICK 과 같은 리듬 (stage1.css s1blink) */
-#work { cursor: pointer }                                                   /* 화면 아무 데나 눌러도 됨 */
-#work.off { cursor: default }
-#work.off #workclick { animation: none; opacity: 0 }                        /* 누르면 깜빡이다 꺼진 채로 안 돌아옴 */
