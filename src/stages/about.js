@@ -27,6 +27,7 @@ import { CV } from '../data.js';
 
 const stage = $('#s1stage'), about = $('#s1about'), me = $('#s1me'), cv = $('#s1cv');
 const glyphs = [...about.querySelectorAll('img')];
+const hintEl = $('#s1scratch');                              // SCRATCH ↙ 안내 — ABOUT 오른쪽 위 (아래 scratchHint)
 const GH = 960;
 /* [요소, 격자 기준 x, y, 폭, 높이, 회전중심 x, y(요소 안 좌표), 도는 쪽] — 전부 Figma 1920×1080 격자(1800×960) 좌표. 실제로는 여기에 sy 를 곱한다.
  *  도는 쪽 −1 = 왼쪽에서 오른쪽으로(ABOUT) · +1 = 오른쪽에서 왼쪽으로(ME) — 둘이 서로 반대로 돌며 만난다 */
@@ -38,7 +39,7 @@ const ITEMS = [
 const BAND = [[0, 18.646], [18.646, 39.583], [39.583, 60.521], [60.521, 81.458], [81.458, 100]];
 /* 이력 다섯 덩이가 들어갈 자리 — Figma 무대 좌표(1920×1080). 글자 A·B·O·U·T 자리와 같은 줄 */
 const CV_AT = [
-  [60,  57, 173, 161],   // 김유진 / 연락처 (157:1382)
+  [60,  57, 173, 161],   // 김유진 / 직함 (157:1382 — 원래 연락처 자리, 개인정보는 뺐다)
   [60, 256, 261, 163],   // EDUCATION (157:1401)
   [60, 455, 373, 165],   // ACTIVITIES (157:1390)
   [60, 657, 298, 164],   // SKILLS (157:1442)
@@ -48,6 +49,7 @@ const CV_AT = [
 let sy = 1, raf = 0, lastT = 0, ease = null, on = false;
 let am = 0, amTo = 0, hold = 800, rotMs = 1200, u = 0;       // am: 기다림 + 회전을 합친 시간축(ms). u(0~1) 는 여기서 나온다
 let cvMs = [0, 0, 0, 0, 0], cvTo = [0, 0, 0, 0, 0];          // 자리마다 따로 구르는 진행(ms) — 되감기도 같은 시간축을 거꾸로
+let scr = [], pre = [0, 0, 0, 0, 0];                          // 복권 긁기 — 글자마다 막(캔버스)·긁힌 비율 · 긁어서 미리 뜬 이력 단위 수
 let erase = 600, delay = 350, popStep = 45, barMs = 350;
 const BAR_W = 183;                                           // SKILLS 막대 전체 길이 (Figma 157:1436) — 흰 바탕도 이만큼까지 그려진다
 let blocks = [], units = [], measured = false;
@@ -56,7 +58,7 @@ const css = (n) => getComputedStyle(stage).getPropertyValue(n);
 const secs = (n, d) => Math.max(0, (parseFloat(css(n)) || d) * 1000);
 const amTotal = () => hold + rotMs;
 const cvTotal = (i) => Math.max(erase, delay + units[i].length * popStep) + barMs;
-const cvAny = () => cvMs.some((v) => v > 0) || cvTo.some((v) => v > 0);
+const cvAny = () => cvMs.some((v) => v > 0) || cvTo.some((v) => v > 0) || scr.some((s) => s.f > 0);   // 긁다 만 글자도 "열림"
 
 function readVars() {
   const m = /cubic-bezier\(([^)]+)\)/.exec(css('--s1aboutEase'));
@@ -147,17 +149,22 @@ function render() {
     b.style.transform = sy === 1 ? '' : 'scale(' + sy + ')';
   });
   paintCv();
+  scratchHint();
 }
 // 글자는 자기 띠만 보이고 지워지는 만큼 왼쪽에서 잘려 나간다. 이력은 워드팝 — 단위마다 제 차례가 되면 그냥 켜진다(페이드 없음)
+// 눈에 보이는 글자는 긁는 막(캔버스, 아래 복권 긁기)이다 — 원래 글자 그림은 투명하게 두고 키보드 포커스·Enter 용으로만 남김.
+// 긁어서 미리 뜬 단위(pre)는 그대로 보이고, 저절로 마저 벗겨질 땐 그 뒤 단위부터 차례로 이어서 뜬다
 function paintCv() {
   const e = ease || ((x) => x);
   for (let i = 0; i < BAND.length; i++) {
     const [t0, t1] = BAND[i];
     const p = e(clamp(cvMs[i] / erase, 0, 1));
     glyphs[i].style.clipPath = 'inset(' + t0 + '% 0 ' + (100 - t1) + '% ' + p * 100 + '%)';
-    const t = cvMs[i] - delay;
+    if (scr[i]) scr[i].cv.style.clipPath = p > 0 ? 'inset(0 0 0 ' + p * 100 + '%)' : '';
+    if (blocks[i]) blocks[i].style.pointerEvents = cvTo[i] > 0 ? '' : 'none';   // 긁는 중엔 덩이가 막 위에서 누르기를 가로채지 않게 — 다 열린 뒤에만 눌러서 덮기
+    const t = cvMs[i] - delay, P = pre[i];
     units[i].forEach((n, k) => {
-      let d = t - k * popStep;
+      let d = k < P ? Infinity : t - (k - P) * popStep;
       // 막대와 사진은 글자를 덮는 **덩어리**라, 글자가 다 지워지기 전에 걸치면 흰 줄이 글자 위에 얹혀 보인다 —
       // 제 차례가 와도 지우기가 끝날 때까지는 안 그린다 (가는 회색 글씨는 그대로 겹쳐 들어와도 괜찮아서 그냥 둔다)
       if (n.bar !== undefined || n.wipe) d = Math.min(d, cvMs[i] - erase);
@@ -196,11 +203,64 @@ function kick() { if (!raf) { lastT = performance.now(); raf = requestAnimationF
 export function aboutSizing(stageH) {                        // stage1.js sizing() — 격자가 늘고 줄면 같이
   if (!isFinite(stageH)) return;
   sy = Math.max(1, stageH - 120) / GH;
+  scr.forEach((_, i) => drawCoat(i, cvTo[i] > 0));              // 막 해상도도 새 크기로 (긁다 만 건 처음부터 — 창 크기를 바꿀 때만)
   if (on) render();
+}
+
+/* ── 복권 긁기 (2026-09-24 피드백 "클릭하면 보이는 게 아니라 복권 긁는 느낌") ──
+ *  글자 A·B·O·U·T 자체가 긁히는 막이다 — 글자 띠마다 같은 모양을 그린 캔버스를 얹고, 누른 채 문지르면 붓 자국만큼 지워진다(destination-out).
+ *  이력이 글자보다 넓어서(오른쪽으로 삐져나감) 밑에 깔아 둘 수 없어서, 대신 **지워진 잉크 비율만큼 이력 단위가 앞에서부터 하나씩** 뜬다.
+ *  SCR_DONE 만큼 긁으면 나머지 글자는 원래의 지우기 연출(왼쪽 → 오른쪽)로 저절로 벗겨지고 남은 단위·막대·사진이 이어서 뜬다.
+ *  다 나온 이력을 누르면 글자가 온전히 다시 그려지며 원래 되돌리기 연출로 덮인다. 휠을 올리면 긁다 만 것도 전부 처음으로.
+ *  막대·사진은 글자를 덮는 덩어리라 긁는 동안엔 안 뜬다(다 벗겨진 뒤에) */
+const SCR_DONE = 0.5, BRUSH = 0.2;                           // 이만큼(잉크 비율) 긁으면 저절로 · 붓 굵기 = 글자 띠 폭 × 이만큼
+function drawCoat(i, gone) {                                 // 막을 지금 크기로 다시 그림 — gone 이면 비워 둠(이미 다 벗겨진 자리)
+  const s = scr[i], im = glyphs[i];
+  if (!s || !im.complete || !im.naturalWidth) return;
+  const k = (innerWidth / 1920) * Math.min(devicePixelRatio || 1, 2);   // 무대 px → 캔버스 픽셀
+  const [t0, t1] = BAND[i], W = Math.max(1, Math.round(159 * sy * k)), FH = GH * sy * k;
+  s.cv.width = W; s.cv.height = Math.max(1, Math.round(FH * (t1 - t0) / 100));
+  s.g.globalCompositeOperation = 'source-over';
+  s.g.clearRect(0, 0, s.cv.width, s.cv.height);
+  if (!gone) s.g.drawImage(im, 0, -FH * t0 / 100, W, FH);
+  s.ink0 = gone ? 0 : ink(i) || 1; s.f = 0; s.mt = 0;
+  if (!gone) pre[i] = 0;
+}
+function ink(i) {                                            // 막에 남은 잉크 픽셀 수 (3칸마다 하나씩만 셈 — 비율만 보면 되니까)
+  const { cv: c, g } = scr[i], d = g.getImageData(0, 0, c.width, c.height).data;
+  let n = 0;
+  for (let o = 3; o < d.length; o += 12) if (d[o] > 128) n++;
+  return n;
+}
+function scratch(i, x0, y0, x1, y1) {                        // 화면 좌표의 선분만큼 붓으로 지움
+  const s = scr[i], r = s.cv.getBoundingClientRect(), kx = s.cv.width / r.width, ky = s.cv.height / r.height;
+  s.g.globalCompositeOperation = 'destination-out';
+  s.g.lineCap = s.g.lineJoin = 'round'; s.g.lineWidth = BRUSH * s.cv.width;
+  s.g.beginPath(); s.g.moveTo((x0 - r.left) * kx, (y0 - r.top) * ky); s.g.lineTo((x1 - r.left) * kx + 0.01, (y1 - r.top) * ky); s.g.stroke();
+  const now = performance.now();
+  if (now - s.mt > 60) { s.mt = now; measure(i); }            // 잉크 세기는 자주 할 필요 없음
+}
+function measure(i) {                                        // 긁힌 비율 → 미리 뜰 단위 수. SCR_DONE 을 넘으면 나머지는 저절로
+  const s = scr[i];
+  if (cvTo[i] > 0) return;
+  s.f = clamp(1 - ink(i) / s.ink0, 0, 1);
+  const r = clamp(s.f / SCR_DONE, 0, 1);
+  if (s.f > 0) { cv.classList.add('on'); measureCv(); }
+  pre[i] = Math.min(units[i].length, Math.round(r * units[i].length));
+  if (r >= 1) openCv(i);                                     // 마저 벗겨짐 — 지우기 연출은 지금 남은 막에 걸림
+  else paintCv();
+  scratchHint();
+}
+function scratchHint() {                                     // SCRATCH ↙ — ABOUT 이 다 들어와 있고 아무 이력도 안 열렸을 때만
+  if (!hintEl) return;
+  const show = on && u >= 1 && !cvAny();
+  hintEl.classList.toggle('on', show);
+  if (show) { hintEl.style.left = 60 + (159 + 24) * sy + 'px'; hintEl.style.top = 60 + 20 * sy + 'px'; }
 }
 
 /* ── 휠에서 부르는 것 (stage1.js) — 걸리는 시간(ms), 할 일이 없으면 0 ── */
 export const aboutShown = () => on;
+export const aboutPhase = () => ({ am, total: amTotal() });   // 들어오는 시간축(기다림 + 회전) — WORK 의 W 가 여기 맞춰 ME 의 M 으로 돌아옴 (stage1.js renderWork)
 export function showAbout() {
   readVars();
   if (on && amTo === amTotal()) return 0;
@@ -232,18 +292,48 @@ export function closeCv(i) {
     cvTo.forEach((_, k) => { t = Math.max(t, closeCv(k)); });
     return t;
   }
-  if (cvTo[i] === 0) return 0;
+  if (cvTo[i] === 0) {                                     // 긁다 만 자리 — 막을 새로 씌우고 미리 뜬 단위도 거둠
+    if (!scr[i] || scr[i].f === 0) return 0;
+    drawCoat(i, false); paintCv(); scratchHint();
+    return 1;
+  }
   readVars();
+  drawCoat(i, false);                                      // 막을 온전히 다시 그림 — 되돌리기 연출(오른쪽 → 왼쪽)로 다시 덮인다
   cvTo[i] = 0; kick();
   return cvMs[i];
 }
 
 export function initAbout() {
   buildCv();
-  // 글자와 그 자리에 들어오는 덩이가 같은 버튼이다 — 글자를 누르면 덩이로, 덩이를 누르면 글자로.
-  // 글자 그림 5장은 완전히 겹쳐 있지만 clip-path 가 누를 수 있는 자리까지 잘라줘서 자기 띠에서만 눌린다 (다 지워지면 안 눌림)
+  // 글자는 긁어서 열고(아래 막), 다 열린 덩이는 눌러서 다시 덮는다. 키보드로는 글자에서 Enter/Space 로 한 번에 열고 닫음.
+  // 글자 그림 5장은 완전히 겹쳐 있지만 clip-path 가 자기 띠까지만 잘라줘서 포커스 테두리도 제 글자에만 걸린다
   const toggle = (i) => { if (cvTo[i] > 0) closeCv(i); else openCv(i); };
   const key = (i) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(i); } };
-  glyphs.forEach((g, i) => { g.addEventListener('click', () => toggle(i)); g.addEventListener('keydown', key(i)); });
+  glyphs.forEach((g, i) => g.addEventListener('keydown', key(i)));
   blocks.forEach((b, i) => { b.addEventListener('click', () => toggle(i)); b.addEventListener('keydown', key(i)); b.tabIndex = 0; b.setAttribute('role', 'button'); });
+  // 긁는 막 — 글자 띠마다 캔버스 하나. 누른 채 문지르면 지나간 자리가 지워짐 (포인터를 잡아 둬서 띠 밖으로 나가도 이어짐 — 그림은 제 띠 안만)
+  scr = glyphs.map((im, i) => {
+    const c = document.createElement('canvas'), [t0, t1] = BAND[i];
+    c.className = 'scr'; c.style.top = t0 + '%'; c.style.height = (t1 - t0) + '%';
+    about.append(c);
+    const s = { cv: c, g: c.getContext('2d', { willReadFrequently: true }), ink0: 1, f: 0, mt: 0, drag: null };
+    c.addEventListener('pointerdown', (e) => {
+      if (!on || u < 1 || cvTo[i] > 0 || e.button !== 0) return;
+      e.preventDefault();
+      c.setPointerCapture(e.pointerId);
+      s.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      scratch(i, e.clientX, e.clientY, e.clientX, e.clientY);
+    });
+    c.addEventListener('pointermove', (e) => {
+      const d = s.drag;
+      if (!d || e.pointerId !== d.id || cvTo[i] > 0) return;
+      scratch(i, d.x, d.y, e.clientX, e.clientY);
+      d.x = e.clientX; d.y = e.clientY;
+    });
+    const up = (e) => { if (!s.drag || e.pointerId !== s.drag.id) return; s.drag = null; if (cvTo[i] === 0) measure(i); };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up); c.addEventListener('lostpointercapture', up);
+    return s;
+  });
+  Promise.all(glyphs.map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})))
+    .then(() => scr.forEach((_, i) => drawCoat(i, cvTo[i] > 0)));
 }

@@ -53,8 +53,18 @@
 #s1stage { --s1about: 1.2s; --s1aboutHold: .8s; --s1aboutEase: cubic-bezier(.5, .2, .5, .8) }   /* --s1aboutHold: 같은 휠에 시작한 격자 가로줄이 지워지는 걸 이만큼 보고 나서 돌기 시작 */
 #s1about, #s1stage img#s1me { position: absolute; display: none; left: 60px; top: 60px; will-change: transform }   /* 위 #s1stage img 의 display: block 을 이기려고 ME 는 id 를 겹쳐 씀 */
 #s1about.on, #s1stage img#s1me.on { display: block }
+#s1stage img#s1me { clip-path: inset(0 0 0 62%) }   /* ME 의 M 은 WORK 의 W 가 뒤집혀 날아와 채운다(stage1.js renderWork) — 그림에선 E 만(me.svg: M 0~205 · E 238~350) */
 #s1about img { left: 0; top: 0; width: 100%; height: 100% }   /* 다섯 장이 완전히 겹쳐 있고 clip-path 로 한 글자씩만 보인다 (about.js BAND) */
-#s1about img { cursor: pointer }                               /* 글자마다 따로 버튼 — 누르면 그 자리만 이력으로 바뀐다 (about.js) */
+/* 복권 긁기 (about.js) — 보이는 글자는 띠마다 얹은 캔버스(긁는 막)이고, 원래 글자 그림은 투명하게 둔 채 키보드 포커스·Enter 용으로만 남김 */
+#s1about img { opacity: 0 }
+#s1about canvas { position: absolute; left: 0; width: 100%; touch-action: none }   /* top · height 는 about.js 가 띠(BAND)대로 */
+/* SCRATCH ↙ — 네모박스 DRAG ↗ 와 같은 글꼴·크기, 화살표만 뒤집어 글자를 가리킴. ABOUT 이 다 들어와 있고 아무 이력도 안 열렸을 때만 (about.js scratchHint) */
+#s1scratch {
+  position: absolute; left: 0; top: 0; z-index: 1; display: none; align-items: center; gap: 10px; pointer-events: none;
+  font-family: 'Chillax', var(--grot); font-weight: 500; font-size: 32px; line-height: 26px; letter-spacing: -0.64px; color: #0C0C0C; white-space: nowrap;
+}
+#s1scratch.on { display: flex }
+#s1scratch svg { order: -1; width: 21.0607px; height: 21.0607px; transform: rotate(180deg); fill: none; stroke: currentColor; stroke-width: 3 }
 #s1about img:focus-visible, #s1cv .blk:focus-visible { outline: 2px solid var(--main); outline-offset: 4px }
 
 /* ── ABOUT ME 클릭 — 글자 자리에 들어오는 이력 (Figma "클릭 이벤트" 162:1968) ──

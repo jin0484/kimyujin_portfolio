@@ -39,13 +39,14 @@
     <!-- ABOUT ME — 5번째 휠에 왼쪽 아래에서 회전하며 들어옴 (about.js, Figma 167:2388). 크기·자리는 about.js 가 격자 높이에 맞춰.
          ABOUT 은 같은 그림 5장을 글자별로 잘라 쓴다 — 회전은 통째로 같지만, 클릭하면 글자 하나씩 지워져야 해서 (about.js BAND) -->
     <div id="s1about" aria-label="ABOUT">
-      <img src="/s1/about.svg" alt="A" width="159" height="960" role="button" tabindex="0" aria-label="A — 이름 · 연락처 보기">
+      <img src="/s1/about.svg" alt="A" width="159" height="960" role="button" tabindex="0" aria-label="A — 이름 보기">
       <img src="/s1/about.svg" alt="B" width="159" height="960" role="button" tabindex="0" aria-label="B — EDUCATION 보기">
       <img src="/s1/about.svg" alt="O" width="159" height="960" role="button" tabindex="0" aria-label="O — ACTIVITIES 보기">
       <img src="/s1/about.svg" alt="U" width="159" height="960" role="button" tabindex="0" aria-label="U — SKILLS 보기">
       <img src="/s1/about.svg" alt="T" width="159" height="960" role="button" tabindex="0" aria-label="T — 사진 보기">
     </div>
     <img id="s1me" src="/s1/me.svg" alt="ME" width="350" height="158">
+    <span id="s1scratch" aria-hidden="true">SCRATCH<svg viewBox="0 0 21.0607 21.0607" width="21.0607" height="21.0607"><path d="M1.06066 20L19.5607 1.5M1.06066 1.5H21.0607M19.5607 0V20"/></svg></span>   <!-- 긁기 안내 — ABOUT 오른쪽 위, 화살표는 DRAG ↗ 를 뒤집은 ↙ (about.js scratchHint) -->
     <div id="s1cv"></div>   <!-- 클릭하면 글자 자리에 들어오는 이력 (about.js buildCv, 내용은 data.js CV) -->
     <div id="s1box" aria-hidden="true">
       <span id="s1drag">DRAG<svg viewBox="0 0 21.0607 21.0607" width="21.0607" height="21.0607"><path d="M1.06066 20L19.5607 1.5M1.06066 1.5H21.0607M19.5607 0V20"/></svg></span>   <!-- Figma 144:891 — 잡으면 사라지고 제자리로 돌아오면 다시 (box.js) -->

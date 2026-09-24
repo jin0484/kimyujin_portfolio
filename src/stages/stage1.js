@@ -23,7 +23,7 @@ import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, u
 import { syncGlass, reserveGlass } from '../glass.js';
 import { syncBits } from '../glassBits.js';
 import { setOrb } from '../glassOrb.js';
-import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
+import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, aboutPhase, openCv, closeCv, cvShown } from './about.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
  *  첫 화면에선 올라와 둥둥 떠 있다가, 스크롤을 내리기 시작하면 납작하게 눌려 막대가 되고
@@ -55,7 +55,7 @@ function paintScroll() {
   scrollFill.style.width = Math.min(100, Math.max(0, p * 100)) + '%';
   const st = jumpTo >= 0 ? jumpTo : stepNow(), sec = st >= 4 ? 2 : st >= 2 ? 1 : 0;   // 가는 중이면 가는 곳을 미리 진하게
   navBtns.forEach((b, i) => b.classList.toggle('on', i === sec));
-  if (work.classList.contains('on') !== (pos > 0 && !(aboutShown() || gridMorphed()))) renderWork(eased(pos));   // ABOUT ME 가 들어오고 나갈 때 WORK 숨김/다시
+  if (aboutShown() || gridMorphed() || work.classList.contains('on') !== pos > 0) renderWork(eased(pos));   // ABOUT ME 가 들어오고 나가는 동안 W ↔ ME 의 M
   setOrb(pos / N, boxProgress(), aboutShown() || gridMorphed());   // 화면2 유리 구슬에 진행 상태 (glassOrb.js)
 }
 let barRaf = 0;                                             // 박스·격자 단계는 저쪽 모듈이 따로 굴려서, 그동안만 따라 그린다
@@ -79,6 +79,7 @@ export function sizing() {
 export function refresh() {                                   // 리사이즈 · 폰트 로드 후 (main.js)
   sizing();
   if (tsA) { measureFill(); renderBody(pos); }                // 높이가 달라지면 채울 글 분량도 다시
+  renderWork(eased(pos));                                     // WORK · ME 의 M 자리도 격자 높이를 따름
   boxRefresh();                                               // 박스가 밀어낸 글상자 높이를 되살림
 }
 
@@ -493,8 +494,13 @@ function render(q) {                                        // q: --s1stepEase �
  *  ② WORK_MOVE: 왼쪽 위 첫 칸(격자 모서리에서 WORK_PAD 안쪽, 높이 = 첫 칸 − 위아래 여백)으로 줄어들며 옮겨 붙음
  *  ③ WORK_ORK: 그 오른쪽에 O · R · K 가 하나씩 톡 (페이드 없음). 대문자 높이 = W 높이
  *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림의 W(#s1work)가 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
- *  화면3 전까지 남는다. 다만 마지막 휠에 ABOUT ME 가 들어오면 왼쪽 위에서 겹쳐서 일단 숨김 — W 가 다시 M 이 되는 건 화면3 작업 때 */
+ *  ④ 화면3(2026-09-24 피드백 "W 가 다시 M 으로") — 마지막 휠에 ABOUT ME 가 들어오는 시간축(about.js aboutPhase, 기다림 + 회전)에 묶여:
+ *     O·R·K 가 K·R·O 순서로 톡톡 사라지고(ORK_OUT), W 가 계속 같은 쪽으로 뒤집히며(180° → 360°) ME 의 M 자리로 내려와 M 이 된다(WORK_BACK).
+ *     ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것과 같아서 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
+ *     ABOUT 과 E 는 원래대로 돌아 들어오고, M 은 그 회전이 끝나는 순간 제자리에 닿는다. 휠을 올리면 거꾸로 */
 const WORK_FLIP = [0, 0.3], WORK_MOVE = [0.42, 0.82], WORK_ORK = [0.84, 0.96], WORK_PAD = 20;
+const ORK_OUT = [0.06, 0.22], WORK_BACK = [0.3, 1];          // 화면3 시간축(0~1) 중 — K 가 먼저 · O 가 마지막으로 사라짐 / W → M 날아감
+const ME_M = [173, 802, 482.636 * 0.4247, 157.922];          // ME 의 M 자리 — 격자 좌표 [x, y, 폭, 높이] (about.js ITEMS 의 ME + me.svg 의 M)
 const work = $('#s1work'), workW = work.querySelector('.w'), workL = [...work.querySelectorAll('span')];
 let orkM = null;                                            // O·R·K 글꼴 치수(글자 크기 대비) — 대문자 높이 · 글자 상자 윗변에서 대문자 윗변까지
 function orkMetrics() {
@@ -507,9 +513,9 @@ function orkMetrics() {
 const seg = (p, [a, b]) => Math.min(1, Math.max(0, (p - a) / (b - a)));
 const smooth = (x) => x * x * (3 - 2 * x);
 function renderWork(q) {
-  const p = q / N, on = p > 0 && !(aboutShown() || gridMorphed());
+  const p = q / N, on = p > 0;
   work.classList.toggle('on', on);
-  letters[2].style.visibility = p > 0 ? 'hidden' : '';
+  letters[2].style.visibility = on ? 'hidden' : '';
   if (!on) return;
   const nm = $('#s1name'), P = NAME_A[2], Q = NAME_B[2];      // 출발 = M 의 지금 자리 (무대 좌표)
   const hw = lerp(P[2], Q[2], swapS), hh = lerp(P[3], Q[3], swapS);
@@ -517,16 +523,24 @@ function renderWork(q) {
   const sy = Math.max(1, (parseFloat(stage.style.height) || 1080) - 120) / 960;   // 격자 세로 배율 — 첫 가로선은 격자 237
   const th = 237 * sy - 2 * WORK_PAD, tw = th * hw / hh, tx = 60 + WORK_PAD, ty = 60 + WORK_PAD;   // 도착 = 왼쪽 위 첫 칸
   const m = smooth(seg(p, WORK_MOVE));
-  workW.style.left = lerp(hx, tx, m) + 'px'; workW.style.top = lerp(hy, ty, m) + 'px';
-  workW.style.width = lerp(hw, tw, m) + 'px'; workW.style.height = lerp(hh, th, m) + 'px';
-  workW.style.transform = 'rotateX(' + 180 * smooth(seg(p, WORK_FLIP)) + 'deg)';
+  let x = lerp(hx, tx, m), y = lerp(hy, ty, m), w = lerp(hw, tw, m), h = lerp(hh, th, m), deg = 180 * smooth(seg(p, WORK_FLIP));
+  const ab = aboutPhase(), t = ab.total > 0 ? ab.am / ab.total : 0;   // 화면3 — ABOUT ME 가 들어온 정도
+  if (t > 0) {
+    const k = smooth(seg(t, WORK_BACK));
+    x = lerp(x, 60 + ME_M[0] * sy, k); y = lerp(y, 60 + ME_M[1] * sy, k);
+    w = lerp(w, ME_M[2] * sy, k); h = lerp(h, ME_M[3] * sy, k);
+    deg = 180 + 180 * k;                                      // 같은 쪽으로 계속 뒤집혀 다시 M
+  }
+  workW.style.left = x + 'px'; workW.style.top = y + 'px'; workW.style.width = w + 'px'; workW.style.height = h + 'px';
+  workW.style.transform = deg % 360 ? 'rotateX(' + deg + 'deg)' : '';
   if (!orkM) orkM = orkMetrics();
   const fs = th / orkM.cap, gap = th * 0.16;
   let lx = tx + tw + gap;
   workL.forEach((el, i) => {
     el.style.fontSize = fs + 'px'; el.style.left = lx + 'px'; el.style.top = ty - fs * orkM.top + 'px';
     lx += el.offsetWidth + gap;
-    el.classList.toggle('on', p >= lerp(WORK_ORK[0], WORK_ORK[1], i / (workL.length - 1)));
+    const k = i / (workL.length - 1);
+    el.classList.toggle('on', p >= lerp(WORK_ORK[0], WORK_ORK[1], k) && t < lerp(ORK_OUT[1], ORK_OUT[0], k));
   });
 }
 
