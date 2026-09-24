@@ -74,6 +74,10 @@
       <img class="s1-i2" src="/s1/i2.svg" alt="I" width="34"      height="233">
       <img class="s1-n"  src="/s1/n.svg"  alt="N" width="193.889" height="234.404">
     </div>
+    <!-- WORK — 퇴장 때 M 만 남아 위아래로 뒤집혀 W 가 되고, 왼쪽 위 첫 칸으로 옮겨 붙은 뒤 옆에 O·R·K 가 차례로 (stage1.js renderWork).
+         M 은 #s1name 창에 갇혀 있어 위로 옮기면 잘리므로, 퇴장이 시작되면 진짜 M 은 숨기고 같은 그림의 W 가 그 자리에서 이어받는다.
+         ※ 임시 연출 — 자세한 건 나중에 Figma 로 받기로 함(2026-09-24). O·R·K 도 글꼴(Chillax)로 임시 -->
+    <div id="s1work" aria-label="WORK"><img class="w" src="/s1/m.svg" alt="W" width="482.636" height="378"><span>O</span><span>R</span><span>K</span></div>
   </div>
   <!-- SCROLL DOWN — 격자 아래 여백 한가운데. 들어오면 아래에서 올라오고, 스크롤 내릴 때까지 둥둥 떠 있는다 (stage1.js scrollHint).
        무대(#s1stage)는 격자 바깥을 잘라내므로(clip-path) 여기 글자는 무대 밖 형제로 둔다.

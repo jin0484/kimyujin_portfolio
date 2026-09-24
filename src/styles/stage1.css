@@ -34,7 +34,9 @@
 }
 #s1drag svg { width: 21.0607px; height: 21.0607px; margin: 0 0 -1.06px -1.06px; fill: none; stroke: currentColor; stroke-width: 3 }   /* Figma 화살표 20×20 (선 두께만큼 왼쪽·아래로 삐져나옴) */
 #s1drag.gone { opacity: 0 }
-#s1box img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; user-select: none; filter: grayscale(var(--s1shotGray, 1)) }   /* 프로젝트 사진(data.js BOX_SHOTS 중 랜덤) — 흑백(--s1shotGray: 1 = 완전 흑백, 0 = 원래 색). 크기·자리는 box.js placeShot: 격자 비율로 눌러 박스를 꽉 채우고, 끝까지 키우면 격자에 딱 맞음 */
+#s1box img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; user-select: none; filter: grayscale(var(--s1shotGray, 1)) }   /* 프로젝트 사진(data.js BOX_SHOTS — 처음 하나는 랜덤, 누르면 차례로) — 흑백(--s1shotGray: 1 = 완전 흑백, 0 = 원래 색). 크기·자리는 box.js placeShot: 격자 비율로 눌러 박스를 꽉 채우고, 끝까지 키우면 격자에 딱 맞음 */
+/* 박스를 누르면(끌지 않고 짧게) 다음 프로젝트 사진이 오른쪽에서 밀려 들어옴 (box.js nextShot). --s1shotSlide: 밀리는 시간 · --s1shotEase */
+#s1stage { --s1shotSlide: .55s; --s1shotEase: cubic-bezier(.65, 0, .35, 1) }
 /* ── 4번째 휠 — 격자 가로줄 갈아끼우기 (Figma 167:2190) ──
    --s1lineOut: 원래 가로줄 3개가 오른쪽 끝부터 왼쪽으로 사라지는 시간 · --s1lineGap: 그 뒤 새 줄이 그려지기까지 기다리는 시간
    --s1lineIn: 새 가로줄 8개가 왼쪽에서 오른쪽으로 그려지는 시간. 사라짐 2.4 + (2 뒤 시작) 그려짐 2.4 = 전체 4.4초 (Figma 표는 0.5초 → 0.6 → 사용자가 다시 4배로)
@@ -215,6 +217,16 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
 .s1-i2 { left: 1521px;     bottom: 1px;    width: 34px;      height: 233px }
 .s1-n  { left: 1603.629px; bottom: -0.4px; width: 193.889px; height: 234.404px }
 
+/* WORK — 퇴장 때 M 이 뒤집혀 W 가 되고 왼쪽 위 첫 칸에 붙은 뒤 O·R·K 가 차례로 (stage1.js renderWork). ※ 임시 연출 — Figma 오면 교체
+   자리·크기·회전은 JS 가 인라인으로. W 는 M 과 같은 그림(메인 초록), O·R·K 는 검정 글꼴 — 페이드 없이 한 글자씩 톡 나타남 */
+#s1work { position: absolute; left: 0; top: 0; display: none; pointer-events: none; z-index: 1 }
+#s1work.on { display: block }
+#s1work span {
+  position: absolute; left: 0; top: 0; visibility: hidden;
+  font-family: 'Chillax', var(--grot); font-weight: 500; line-height: 1; color: #0C0C0C; white-space: nowrap;
+}
+#s1work span.on { visibility: visible }
+
 
 /* ── 유리 링 (시안, src/glass.js) — U 오른쪽 기둥에 걸려 천천히 흔들리며 뒤 글자를 굴절시킴 ──
    --glassY: 처음 걸린 높이(오른쪽 기둥, U 높이 대비 — 잡고 끌면 U 획을 따라 미끄러짐, glass.js PATH) · --glassSize: 바깥 지름 = U 폭 × 이만큼 · --glassTube: 굵기(지름 대비)
@@ -228,4 +240,8 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
    --bitCube: 큐브 한 변 = J 기둥 굵기 × 이만큼 · --bitCubeGap: 큐브가 J 위로 뜬 거리(기둥 굵기 대비) */
 #s1 { --bitCube: 1.15; --bitCubeGap: .4 }
 .s1bit { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform }
-html.lapzoom .s1bit { opacity: 0; transition: opacity .25s }
+html.lapzoom .s1bit, html.lapzoom .s1orb { opacity: 0; transition: opacity .25s }
+/* 화면2 유리 구슬 (src/glassOrb.js) — 퇴장 끝에 나타나 빈 공간을 떠다니다가, 네모박스가 나오면 SPOILER 마지막 줄 첫 단어 앞의 점으로
+   --orbSize: 지름 = 격자 높이 × 이만큼 · --orbDrift: 떠다니는 빠르기(px/s, 1920 기준) · --orbDot: 마지막 줄 앞에 붙었을 때 지름 = 글자 줄 높이 × 이만큼 */
+#s1 { --orbSize: .3; --orbDrift: 45; --orbDot: .3 }
+.s1orb { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform }

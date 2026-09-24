@@ -22,6 +22,7 @@ import { $, bezier, tempo } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
 import { syncGlass, reserveGlass } from '../glass.js';
 import { syncBits } from '../glassBits.js';
+import { setOrb } from '../glassOrb.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, openCv, closeCv, cvShown } from './about.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
@@ -54,6 +55,8 @@ function paintScroll() {
   scrollFill.style.width = Math.min(100, Math.max(0, p * 100)) + '%';
   const st = jumpTo >= 0 ? jumpTo : stepNow(), sec = st >= 4 ? 2 : st >= 2 ? 1 : 0;   // 가는 중이면 가는 곳을 미리 진하게
   navBtns.forEach((b, i) => b.classList.toggle('on', i === sec));
+  if (work.classList.contains('on') !== (pos > 0 && !(aboutShown() || gridMorphed()))) renderWork(eased(pos));   // ABOUT ME 가 들어오고 나갈 때 WORK 숨김/다시
+  setOrb(pos / N, boxProgress(), aboutShown() || gridMorphed());   // 화면2 유리 구슬에 진행 상태 (glassOrb.js)
 }
 let barRaf = 0;                                             // 박스·격자 단계는 저쪽 모듈이 따로 굴려서, 그동안만 따라 그린다
 function followBar(ms) {
@@ -391,7 +394,7 @@ function kimRows() {
   letters.forEach((im, k) => {
     const P = NAME_A[k], Q = NAME_B[k];
     const l = lerp(P[0], Q[0], swapS), b = lerp(P[1], Q[1], swapS), w = lerp(P[2], Q[2], swapS), h = lerp(P[3], Q[3], swapS);
-    const x = name.offsetLeft + l - CX, y = nBot - b - h + nameDrop;
+    const x = name.offsetLeft + l - CX, y = nBot - b - h + (k === 2 ? 0 : nameDrop);   // M 은 퇴장 때 안 내려가고 제자리에서 뒤집힘(renderWork)
     if (x > CW) return;                                          // 본문 단 오른쪽 밖 (YUJIN 대부분)
     placed.push([letterMasks[k], x, y, w, h]);
     top = Math.min(top, Math.max(nTop, y));
@@ -480,8 +483,51 @@ function render(q) {                                        // q: --s1stepEase �
     } else e.style.left = e.style.bottom = e.style.width = e.style.height = "";   // KIM 크게 = CSS 그대로
     e.style.transform = "translateY(" + ny + "px)";
   });
+  renderWork(q);                                            // M → W (WORK)
   syncGlass();                                              // U 에 걸린 유리 링을 같은 프레임에 맞춤 (glass.js)
   syncBits();                                               // J 위 유리 큐브도 (glassBits.js)
+}
+
+/* ── WORK (임시 연출, 2026-09-24 피드백 "M 이 W 로 뒤집힘") — 퇴장 진행도 p(0~1)에 묶여 있어 휠을 올리면 그대로 되감긴다 ──
+ *  ① WORK_FLIP: 다른 글자가 내려가는 동안 M 은 제자리에서 위아래로 뒤집혀(rotateX 180°) W 가 됨
+ *  ② WORK_MOVE: 왼쪽 위 첫 칸(격자 모서리에서 WORK_PAD 안쪽, 높이 = 첫 칸 − 위아래 여백)으로 줄어들며 옮겨 붙음
+ *  ③ WORK_ORK: 그 오른쪽에 O · R · K 가 하나씩 톡 (페이드 없음). 대문자 높이 = W 높이
+ *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림의 W(#s1work)가 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
+ *  화면3 전까지 남는다. 다만 마지막 휠에 ABOUT ME 가 들어오면 왼쪽 위에서 겹쳐서 일단 숨김 — W 가 다시 M 이 되는 건 화면3 작업 때 */
+const WORK_FLIP = [0, 0.3], WORK_MOVE = [0.42, 0.82], WORK_ORK = [0.84, 0.96], WORK_PAD = 20;
+const work = $('#s1work'), workW = work.querySelector('.w'), workL = [...work.querySelectorAll('span')];
+let orkM = null;                                            // O·R·K 글꼴 치수(글자 크기 대비) — 대문자 높이 · 글자 상자 윗변에서 대문자 윗변까지
+function orkMetrics() {
+  const g = document.createElement('canvas').getContext('2d'), cs = getComputedStyle(workL[0]);
+  g.font = cs.fontWeight + ' 100px ' + cs.fontFamily;
+  const m = g.measureText('ORK'), cap = m.actualBoundingBoxAscent / 100;
+  const asc = m.fontBoundingBoxAscent / 100, desc = m.fontBoundingBoxDescent / 100;
+  return { cap, top: (1 - (asc + desc)) / 2 + asc - cap };   // line-height 1 기준
+}
+const seg = (p, [a, b]) => Math.min(1, Math.max(0, (p - a) / (b - a)));
+const smooth = (x) => x * x * (3 - 2 * x);
+function renderWork(q) {
+  const p = q / N, on = p > 0 && !(aboutShown() || gridMorphed());
+  work.classList.toggle('on', on);
+  letters[2].style.visibility = p > 0 ? 'hidden' : '';
+  if (!on) return;
+  const nm = $('#s1name'), P = NAME_A[2], Q = NAME_B[2];      // 출발 = M 의 지금 자리 (무대 좌표)
+  const hw = lerp(P[2], Q[2], swapS), hh = lerp(P[3], Q[3], swapS);
+  const hx = nm.offsetLeft + lerp(P[0], Q[0], swapS), hy = nm.offsetTop + nm.offsetHeight - lerp(P[1], Q[1], swapS) - hh;
+  const sy = Math.max(1, (parseFloat(stage.style.height) || 1080) - 120) / 960;   // 격자 세로 배율 — 첫 가로선은 격자 237
+  const th = 237 * sy - 2 * WORK_PAD, tw = th * hw / hh, tx = 60 + WORK_PAD, ty = 60 + WORK_PAD;   // 도착 = 왼쪽 위 첫 칸
+  const m = smooth(seg(p, WORK_MOVE));
+  workW.style.left = lerp(hx, tx, m) + 'px'; workW.style.top = lerp(hy, ty, m) + 'px';
+  workW.style.width = lerp(hw, tw, m) + 'px'; workW.style.height = lerp(hh, th, m) + 'px';
+  workW.style.transform = 'rotateX(' + 180 * smooth(seg(p, WORK_FLIP)) + 'deg)';
+  if (!orkM) orkM = orkMetrics();
+  const fs = th / orkM.cap, gap = th * 0.16;
+  let lx = tx + tw + gap;
+  workL.forEach((el, i) => {
+    el.style.fontSize = fs + 'px'; el.style.left = lx + 'px'; el.style.top = ty - fs * orkM.top + 'px';
+    lx += el.offsetWidth + gap;
+    el.classList.toggle('on', p >= lerp(WORK_ORK[0], WORK_ORK[1], i / (workL.length - 1)));
+  });
 }
 
 /* ── 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다 ──
@@ -527,6 +573,7 @@ function clear() {                                          // 위치 0 — 인�
   body.style.width = ""; year.style.transform = ""; laptop.style.bottom = "";
   for (const e of letters) e.style.transform = "";
   syncGlass(); syncBits();
+  renderWork(0);                                              // M 다시 보이게
   renderBody(0);
 }
 const stepMs = () => (parseFloat(getComputedStyle(stage).getPropertyValue("--s1step")) || 0.5) * 1000;
@@ -610,6 +657,7 @@ export function initStage1() {
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
+  if (document.fonts) document.fonts.load("500 100px 'Chillax'").then(() => { orkM = null; }, () => {});   // WORK 의 O·R·K 글꼴 — 미리 받아 두고, 오면 치수 다시 잼
   // KIM 글자 그림이 다 오면 피해 흐르는 조판으로 다시 (그 전엔 사각형 조판)
   Promise.all(letters.map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})))
     .then(() => ready).then(() => { if (tsA && pos === 0) { measureFill(); renderBody(pos); } });

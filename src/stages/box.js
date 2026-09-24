@@ -47,6 +47,7 @@ let v = 0, vTo = 0;                         // v: 3번째 휠 — 박스·초록
 let drag = null, raf = 0, lastT = 0;
 let ease = null, inMs = 600, damp = 0.7;
 let hintT0 = 0, hintMs = 180;               // 등장 직후 한 번 크게 숨쉬는 힌트 — 제일 커지기까지 걸리는 시간
+const CLICK_PX = 5, CLICK_MS = 350;         // 이보다 덜 움직이고 짧게 떼면 끌기가 아니라 누르기 — 다음 사진 (nextShot)
 const HINT_W = 30, HINT_T = 26;             // 힌트로 제일 커지는 양(px) — 격자 선 하나가 밀릴 만큼만
 let gms = 0, gTo = 0;                       // 마지막 휠 — 가로줄 갈아끼우기 진행(ms). 되감기도 같은 시간축을 거꾸로
 let lineEase = null, outMs = 200, gapMs = 200, lnMs = 300;
@@ -130,13 +131,33 @@ function paint(d) {
 }
 
 // 사진 — 격자(1800 × 960·sy) 비율로 눌러 둔 채 박스를 꽉 채움(cover). 박스를 끝까지 키우면 사진이 격자에 딱 맞는다.
-// 화면 세로가 짧으면(sy < 1) 사진이 그만큼 세로로 눌리고, 박스가 작을 땐 pos(중심점) 기준으로 잘린다
-let shotEl = null, shotPos = [0.5, 0.5];
+// 화면 세로가 짧으면(sy < 1) 사진이 그만큼 세로로 눌리고, 박스가 작을 땐 pos(중심점) 기준으로 잘린다.
+// 사진은 BOX_SHOTS 전부를 박스 안에 겹쳐 두고 지금 것(shotI)만 보인다 — 박스를 누르면 다음 사진이 옆에서 밀려 들어온다(nextShot)
+let shotEls = [], shotI = 0, sliding = null;
 function placeShot(bw, bh) {
-  if (!shotEl) return;
   const Wv = GW, Hv = GH * sy, k = Math.max(bw / Wv, bh / Hv), iw = Wv * k, ih = Hv * k;
-  shotEl.style.width = iw + 'px'; shotEl.style.height = ih + 'px';
-  shotEl.style.left = (bw - iw) * shotPos[0] + 'px'; shotEl.style.top = (bh - ih) * shotPos[1] + 'px';
+  for (const el of shotEls) {
+    if (el.style.display === 'none') continue;
+    el.style.width = iw + 'px'; el.style.height = ih + 'px';
+    el.style.left = (bw - iw) * el._pos[0] + 'px'; el.style.top = (bh - ih) * el._pos[1] + 'px';
+  }
+}
+/* ── 박스를 누르면(끌지 않고 짧게) 다음 프로젝트 (2026-09-24 피드백 "박스 안에서 프로젝트 넘겨 보기") ──
+ *  지금 사진은 왼쪽으로 밀려 나가고 다음 사진이 오른쪽에서 밀려 들어온다 — 넘어갔다는 게 보이게. 마지막 다음은 처음.
+ *  박스 폭만큼 밀린다. --s1shotSlide: 밀리는 시간 · --s1shotEase. 밀리는 중에 또 누르면 무시 */
+function nextShot() {
+  if (shotEls.length < 2 || sliding) return;
+  const from = shotEls[shotI], ni = (shotI + 1) % shotEls.length, to = shotEls[ni];
+  const bw = parseFloat(box.style.width) || 0, bh = parseFloat(box.style.height) || 0;
+  const opt = { duration: (parseFloat(css('--s1shotSlide')) || 0.55) * 1000, easing: css('--s1shotEase').trim() || 'cubic-bezier(.65, 0, .35, 1)' };
+  to.style.display = '';
+  placeShot(bw, bh);
+  sliding = [from.animate([{ transform: 'none' }, { transform: 'translateX(' + (-bw) + 'px)' }], opt),
+             to.animate([{ transform: 'translateX(' + bw + 'px)' }, { transform: 'none' }], opt)];
+  shotI = ni;
+  $('#s1drag').style.color = BOX_SHOTS[ni].ink || '';         // 밝은 사진은 DRAG ↗ 를 어둡게
+  try { localStorage.setItem('s1lastShot', BOX_SHOTS[ni].src); } catch (e) {}
+  sliding[1].finished.then(() => { from.style.display = 'none'; sliding = null; }, () => { sliding = null; });
 }
 
 // 박스 크기(화면 px) → 그 박스가 밀어내는 선·글·노트북 (박스가 기본 칸보다 작을 땐 아무것도 안 밀림)
@@ -267,18 +288,23 @@ export function boxSizing(stageH, s) {                       // stage1.js sizing
 
 export function initBox(squeezeBody) {
   squeeze = squeezeBody;
-  // 프로젝트 사진 하나를 랜덤으로 — 페이지 열 때(새로고침 포함)만 뽑고, 박스를 넣었다 꺼내도 그대로. 박스가 나오기 전에 미리 받아둠
-  // 직전에 나온 사진은 빼고 뽑는다 (브라우저에 마지막 사진만 기억 — 저장이 막힌 환경이면 그냥 랜덤)
+  // 처음 보일 프로젝트 사진을 랜덤으로 — 페이지 열 때(새로고침 포함)만 뽑고, 박스를 넣었다 꺼내도 그대로. 박스가 나오기 전에 미리 받아둠
+  // 직전에 나온 사진은 빼고 뽑는다 (브라우저에 마지막 사진만 기억 — 저장이 막힌 환경이면 그냥 랜덤). 누르면 그다음부터 차례로(nextShot)
   if (BOX_SHOTS.length) {
     let last = null;
     try { last = localStorage.getItem('s1lastShot'); } catch (e) {}
     const pool = BOX_SHOTS.length > 1 ? BOX_SHOTS.filter((s) => s.src !== last) : BOX_SHOTS;
     const shot = pool[Math.floor(Math.random() * pool.length)];
     try { localStorage.setItem('s1lastShot', shot.src); } catch (e) {}
-    const img = new Image();
-    img.src = shot.src; img.alt = ''; img.draggable = false; img.decoding = 'async';
-    shotPos = (shot.pos || '50% 50%').split(/\s+/).map((v) => parseFloat(v) / 100);
-    box.prepend(img); shotEl = img;
+    shotI = BOX_SHOTS.indexOf(shot);
+    shotEls = BOX_SHOTS.map((s, i) => {
+      const img = new Image();
+      img.src = s.src; img.alt = ''; img.draggable = false; img.decoding = 'async';
+      img._pos = (s.pos || '50% 50%').split(/\s+/).map((v) => parseFloat(v) / 100);
+      if (i !== shotI) img.style.display = 'none';
+      return img;
+    });
+    box.prepend(...shotEls);
     if (shot.ink) $('#s1drag').style.color = shot.ink;          // 밝은 사진은 DRAG ↗ 를 어둡게
   }
   box.addEventListener('pointerdown', (e) => {
@@ -287,18 +313,21 @@ export function initBox(squeezeBody) {
     box.setPointerCapture(e.pointerId);
     hintT0 = 0;                                              // 힌트 중에 잡으면 그 자리에서 이어서
     hint(false);                                             // DRAG ↗ 안내 — 잡는 동안만 숨김
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w, t, at: performance.now(), far: false };
     box.classList.add('grab');
   });
   box.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > CLICK_PX) drag.far = true;   // 이만큼 움직이면 누르기가 아니라 끌기
     w = clamp(drag.w + (e.clientX - drag.x) / scale, W0, GW);
     t = clamp(drag.t + (e.clientY - drag.y) / scale / sy, 0, T0);
     render();
   });
   const up = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
+    const click = e.type === 'pointerup' && !drag.far && performance.now() - drag.at < CLICK_MS;   // 거의 안 움직이고 짧게 뗌 = 누르기
     drag = null; box.classList.remove('grab');
+    if (click) nextShot();
     hint(true);                                              // 놓은 크기 그대로 남음 — DRAG ↗ 는 바로 다시
   };
   box.addEventListener('pointerup', up);
