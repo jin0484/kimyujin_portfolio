@@ -504,22 +504,21 @@ function render(q) {                                        // q: --s1stepEase �
  *    ④ M_UNFOLD  바닥선에서 M 이 펴져 ME 의 M 이 됨. 달리는 길은 왼쪽 ABOUT 기둥(폭 159)에 닿지 않는다
  *    ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것이라 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
  *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림(#s1work .w)이 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
- *  ※ O·R·K 는 아직 글꼴(Chillax) 임시 — Figma 로 받으면 KIM YUJIN 과 같은 서체 그림으로 */
+ *  O·R·K 는 Figma "WORK" 시안(202:29, 2026-09-26)의 필기체 벡터 그대로(public/s1/work-o·r·k.svg — Mrs Saint Delafield 를 가로로 늘려 윤곽선으로 만든 것).
+ *  자리·크기는 시안에서 W 글자 상자(WORK_WBOX)를 기준으로 잰 비율을 우리 W 크기로 옮긴다 — o 가 W 오른쪽 기둥에 겹쳐 들어가고,
+ *  그 위에 W 기둥 조각(WORK_WEAVE, 시안의 Vector 7)을 한 번 더 얹어 o 가 W 를 감고 지나가는 것처럼 보이게 한다(W 가 다 펴져 있고 o 가 보일 때만).
+ *  시안의 W 는 사이트를 캡처한 그림이라, 그 안의 W 글자 경계를 픽셀로 재서 기준으로 삼았다(가로:세로 1.272 — 우리 W 1.277 과 같음) */
 const W_SQUASH = [0, 0.16], W_TRAVEL = [0.16, 0.74], W_UNFOLD = [0.74, 0.88], W_ORK = [0.86, 1];
 const M_ORK = [0, 0.2], M_FOLD = [0.1, 0.28], M_TRAVEL = [0.28, 0.84], M_UNFOLD = [0.84, 1];
 const WORK_PAD = 20, WORK_LINE = 5, ORK_RISE = 0.5;             // W 위·왼쪽 여백 · 달리는 선 굵기(무대 px) · ORK 한 글자가 솟는 데 쓰는 몫(ORK 구간 대비 — 나머지는 차례 간격)
+/* Figma 202:29 좌표 — W 글자 상자 [x, y, 폭, 높이] · o · r · k 상자 · o 앞을 지나는 W 기둥 조각 */
+const WORK_WBOX = [10.534, 19.586, 96.87, 76.138];
+const WORK_ORKBOX = [[80, 36, 91, 52], [146, 39, 108, 49], [236, 41, 108, 47]];
+const WORK_WEAVE = [88.5, 47, 15, 31.5];
 const RAIL_X = 60 + 586;                                     // 화면3 에서 타고 내려가는 세로선 — 두 번째 겹선의 왼선(격자 586). ME 의 M 오른끝보다 오른쪽이어야 함
 const ME_M = [173, 802, 482.636 * 0.4247, 157.922];          // ME 의 M 자리 — 격자 좌표 [x, y, 폭, 높이] (about.js ITEMS 의 ME + me.svg 의 M)
-const work = $('#s1work'), workW = work.querySelector('.w'), workSvg = work.querySelector('.run'), workRun = workSvg.querySelector('path'), workL = [...work.querySelectorAll('span')];
+const work = $('#s1work'), workW = work.querySelector('.w'), workSvg = work.querySelector('.run'), workRun = workSvg.querySelector('path'), workL = [...work.querySelectorAll('.ork')], workWeave = work.querySelector('.weave');
 const easeFold = bezier(0.5, 0, 0.75, 0), easeRun = bezier(0.6, 0, 0.25, 1), easeOpen = bezier(0.2, 0.8, 0.3, 1);   // 접힘은 점점 빨리 · 달리기는 길게 가라앉게 · 펴짐은 빨리 열리고 천천히 멈춤
-let orkM = null;                                            // O·R·K 글꼴 치수(글자 크기 대비) — 대문자 높이 · 글자 상자 윗변에서 대문자 윗변까지
-function orkMetrics() {
-  const g = document.createElement('canvas').getContext('2d'), cs = getComputedStyle(workL[0]);
-  g.font = cs.fontWeight + ' 100px ' + cs.fontFamily;
-  const m = g.measureText('ORK'), cap = m.actualBoundingBoxAscent / 100;
-  const asc = m.fontBoundingBoxAscent / 100, desc = m.fontBoundingBoxDescent / 100;
-  return { cap, top: (1 - (asc + desc)) / 2 + asc - cap };   // line-height 1 기준
-}
 const seg = (p, [a, b]) => Math.min(1, Math.max(0, (p - a) / (b - a)));
 const smooth = (x) => x * x * (3 - 2 * x);
 const railLen = (pts) => pts.slice(1).reduce((s, q, i) => s + Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]), 0);
@@ -583,20 +582,26 @@ function renderWork(q) {
     workSvg.setAttribute('width', 1920); workSvg.setAttribute('height', parseFloat(stage.style.height) || 1080);
     workSvg.style.display = 'block'; workSvg.style.opacity = fade < 1 ? fade : '';
   } else workSvg.style.display = 'none';
-  // O·R·K — 첫 가로선 위에 앉음. 선 아래는 잘라 둬서, 아래에서 솟아오르고(화면2) 아래로 가라앉는다(화면3)
-  if (!orkM) orkM = orkMetrics();
-  const fs = th / orkM.cap, gap = th * 0.16, below = fs * (1 - orkM.top - orkM.cap);   // 글자 상자 아랫변 ~ 기준선
-  const n = workL.length, span = (k, [a, z]) => { const L = z - a, st = a + L * (1 - ORK_RISE) * k / (n - 1); return [st, st + L * ORK_RISE]; };
-  let lx = tx + tw + gap;
+  // O·R·K — 시안 자리 그대로(W 글자 상자 기준 비율). 첫 가로선 아래는 잘라 둬서, 아래에서 솟아오르고(화면2) 아래로 가라앉는다(화면3)
+  const k = th / WORK_WBOX[3], fx = (X) => tx + (X - WORK_WBOX[0]) * k, fy = (Y) => line - th + (Y - WORK_WBOX[1]) * k;
+  const n = workL.length, span = (i, [a, z]) => { const L = z - a, st = a + L * (1 - ORK_RISE) * i / (n - 1); return [st, st + L * ORK_RISE]; };
+  let rO = 0;
   workL.forEach((el, i) => {
     const r = easeOpen(seg(p, span(i, W_ORK))) * (1 - easeFold(seg(t, span(n - 1 - i, M_ORK))));   // 솟은 정도 — K 가 먼저 가라앉음
-    const d = (1 - r) * th * 1.06;                            // 아래로 내려가 있는 거리
-    el.style.fontSize = fs + 'px'; el.style.left = lx + 'px';
-    el.style.top = line - fs * (orkM.top + orkM.cap) + d + 'px';
-    el.style.clipPath = 'inset(0 0 ' + (below + d) + 'px 0)';
+    const [X, Y, w, h] = WORK_ORKBOX[i], y0 = fy(Y), hh = h * k;
+    const d = (1 - r) * (line - y0 + 2);                      // 아래로 내려가 있는 거리 — 다 내려가면 첫 가로선 아래로 완전히 숨음
+    el.style.left = fx(X) + 'px'; el.style.top = y0 + d + 'px'; el.style.width = w * k + 'px'; el.style.height = hh + 'px';
+    el.style.clipPath = 'inset(0 0 ' + Math.max(0, y0 + d + hh - line) + 'px 0)';
     el.classList.toggle('on', r > 0);
-    lx += el.offsetWidth + gap;
+    if (i === 0) rO = r;
   });
+  // o 앞을 지나는 W 기둥 조각 — W 가 다 펴져 있고 o 가 보일 때만 (접히거나 펴지는 중엔 W 모양이 달라 어긋나므로)
+  const weave = g && g.flip && g.s > 0.999 && rO > 0;
+  workWeave.style.display = weave ? 'block' : 'none';
+  if (weave) {
+    const [X, Y, w, h] = WORK_WEAVE;
+    workWeave.style.left = fx(X) + 'px'; workWeave.style.top = fy(Y) + 'px'; workWeave.style.width = w * k + 'px'; workWeave.style.height = h * k + 'px';
+  }
 }
 
 /* ── 호버 배치 — swapS: 0 = KIM 크게, 1 = YUJIN 크게. 휠 시퀀스와 따로 굴러서, 퇴장 중에 KIM 크게로 돌아가는 것도 겹쳐 그린다 ──
@@ -726,7 +731,6 @@ export function initStage1() {
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
   ready.then(buildBody);
-  if (document.fonts) document.fonts.load("500 100px 'Chillax'").then(() => { orkM = null; }, () => {});   // WORK 의 O·R·K 글꼴 — 미리 받아 두고, 오면 치수 다시 잼
   // KIM 글자 그림이 다 오면 피해 흐르는 조판으로 다시 (그 전엔 사각형 조판)
   Promise.all(letters.map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})))
     .then(() => ready).then(() => { if (tsA && pos === 0) { measureFill(); renderBody(pos); } });

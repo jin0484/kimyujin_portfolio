@@ -229,16 +229,14 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
 .s1-n  { left: 1603.629px; bottom: -0.4px; width: 193.889px; height: 234.404px }
 
 /* WORK — M 이 선으로 눌렸다가 격자선을 타고 가서 W 로 펴짐, O·R·K 는 선 아래에서 솟음 (stage1.js renderWork). 마지막 휠엔 거꾸로 ME 의 M 으로
-   자리·크기는 JS 가 인라인으로. W 는 M 과 같은 그림(메인 초록), O·R·K 는 검정 글꼴(임시). 접힌 동안의 선(.run)은 머리·꼬리가 있는 한 줄로 격자선 위를 달리며 모서리에서 직각으로 꺾임 */
+   자리·크기는 JS 가 인라인으로. W 는 M 과 같은 그림(메인 초록), O·R·K 는 Figma 시안(202:29)의 필기체 벡터 그림, .weave 는 o 앞을 지나는 W 기둥 조각(메인 초록). 접힌 동안의 선(.run)은 머리·꼬리가 있는 한 줄로 격자선 위를 달리며 모서리에서 직각으로 꺾임 */
 #s1work { position: absolute; left: 0; top: 0; display: none; pointer-events: none; z-index: 1 }
 #s1work.on { display: block }
 #s1work .run { position: absolute; left: 0; top: 0; display: none; overflow: visible }   /* 격자선을 따라 달리는 선 — 무대 좌표 그대로 그림 */
 #s1work .run path { fill: none; stroke: var(--main); stroke-linejoin: miter; stroke-linecap: butt }
-#s1work span {
-  position: absolute; left: 0; top: 0; visibility: hidden;
-  font-family: 'Chillax', var(--grot); font-weight: 500; line-height: 1; color: #0C0C0C; white-space: nowrap;
-}
-#s1work span.on { visibility: visible }
+#s1stage #s1work img.ork { visibility: hidden }   /* 자리·크기는 stage1.js renderWork */
+#s1stage #s1work img.ork.on { visibility: visible }
+#s1work .weave { position: absolute; left: 0; top: 0; display: none; fill: var(--main) }
 
 
 /* ── 유리 링 (시안, src/glass.js) — U 오른쪽 기둥에 걸려 천천히 흔들리며 뒤 글자를 굴절시킴 ──

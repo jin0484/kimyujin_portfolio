@@ -77,8 +77,8 @@
     </div>
     <!-- WORK — 퇴장 때 M 이 바닥선으로 눌려 초록 선이 되고, 그 선이 격자선을 따라 달려 왼쪽 위 첫 가로선에서 W 로 펴진 뒤 O·R·K 가 선 아래에서 솟음 (stage1.js renderWork).
          마지막 휠엔 거꾸로 선이 되어 ME 의 M 자리로 가 M 으로 펴짐. .w = 글자(M 그림, W 일 땐 위아래 뒤집음) · .run = 접힌 동안 격자선을 따라 달리는 선.
-         M 은 #s1name 창에 갇혀 있어 위로 옮기면 잘리므로, 퇴장이 시작되면 진짜 M 은 숨기고 같은 그림이 그 자리에서 이어받는다. O·R·K 는 글꼴(Chillax) 임시 -->
-    <div id="s1work" aria-label="WORK"><img class="w" src="/s1/m.svg" alt="W" width="482.636" height="378"><svg class="run" aria-hidden="true"><path/></svg><span>O</span><span>R</span><span>K</span></div>
+         M 은 #s1name 창에 갇혀 있어 위로 옮기면 잘리므로, 퇴장이 시작되면 진짜 M 은 숨기고 같은 그림이 그 자리에서 이어받는다. O·R·K 는 Figma 시안(202:29)의 필기체 벡터, .weave 는 o 앞을 지나는 W 기둥 조각 -->
+    <div id="s1work" aria-label="WORK"><img class="w" src="/s1/m.svg" alt="W" width="482.636" height="378"><svg class="run" aria-hidden="true"><path/></svg><img class="ork" src="/s1/work-o.svg" alt="O" width="91" height="52"><img class="ork" src="/s1/work-r.svg" alt="R" width="108" height="49"><img class="ork" src="/s1/work-k.svg" alt="K" width="108" height="47"><svg class="weave" viewBox="0 0 15 31.5" preserveAspectRatio="none" aria-hidden="true"><path d="M0 31.5L3 9L15 0L10.5 29.5L0 31.5Z"/></svg></div>
   </div>
   <!-- SCROLL DOWN — 격자 아래 여백 한가운데. 들어오면 아래에서 올라오고, 스크롤 내릴 때까지 둥둥 떠 있는다 (stage1.js scrollHint).
        무대(#s1stage)는 격자 바깥을 잘라내므로(clip-path) 여기 글자는 무대 밖 형제로 둔다.
