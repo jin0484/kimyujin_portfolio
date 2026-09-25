@@ -1,52 +1,108 @@
-/* ══════════ 노트북 클릭 → 노트북이 화면 가득 커지며 WORK 로 (2026-09-24 피드백) ══════════
+/* ══════════ 노트북 클릭 → 노트북 정면으로 다가가 화면 가득, 그대로 WORK 로 (2026-09-24 피드백 · 2026-09-25 측면 → 정면) ══════════
  *
- * 누르면 노트북 화면(검은 부분)의 가운데가 화면 가운데로 오면서, 검은 화면이 격자를 다 덮을 만큼 커진다.
- * 그동안 격자 바깥 여백도 같이 어두워지고(#s1 배경), 유리 링·SCROLL DOWN 은 비켜준다(stage1.css html.lapzoom).
- * 다 커지면 work.html 로 넘어간다 — 그쪽도 같은 검정이라 이음매가 없고, 커진 CLICK 은 이름(view-transition-name lapclick)이 붙어 있어
- * 넘어간 뒤 그 자리에서 .6초 동안 사라진다 — 뚝 끊기지 않게 (View Transitions — 안 되는 브라우저는 그냥 넘어감).
- *
- * 노트북은 box.js 가 줄여 놨을 수도 있어서(transform-origin 100% 100% 의 scale) 그 위에 덧붙인다.
- * 뒤로 가기로 돌아오면(bfcache) 원래 크기로 되돌려 둔다.
- * --lapZoom: 커지는 시간 · --lapZoomEase: 이징 (stage1.css #s1)
+ * 노트북 사진은 오른쪽 앞에서 비스듬히 본 각도라, 그냥 확대만 하면 비뚤어진 화면이 비뚤어진 채 커져서 부자연스러웠다.
+ * 그래서 사진 속 검은 화면의 네 모서리(SCREEN)가 커지는 동안 **정면에서 본 직사각형(16:10)으로 조금씩 옮겨 가게** 하고,
+ * 매 프레임 그 네 점에 맞는 원근 변환(호모그래피 → matrix3d)을 노트북 전체에 건다 — 카메라가 노트북 정면으로 돌아 들어가며 다가가는 것처럼.
+ *   · 크기는 배율(로그)로 키운다 — 직선으로 키우면 처음엔 굼뜨고 끝에 확 커진다
+ *   · 화면 가운데는 그 배율만큼 목표로 다가간다 — 한 점을 향해 줌인하는 느낌
+ *   · 모양(기울기·원근)은 같은 이징으로 정면 직사각형이 된다
+ * 끝나면 검은 화면이 격자 안쪽을 다 덮고 work.html 로 넘어간다 — 그쪽도 같은 검정이라 이음매가 없다.
+ * 순서: 누름 → CLICK 이 꺼짐(깜빡임처럼 페이드 없이 한 번에) → CLICK_GAP 뒤 커지기 시작 (2026-09-25 사용자 요청 — 커지는 동안 글자가 없게).
+ * (예전엔 CLICK 을 같이 키워 페이지 전환으로 work.html 까지 들고 갔는데, 브라우저가 원래 크기로 찍은 사진을 늘려 보여 계단처럼 깨졌다)
+ * will-change: transform 은 걸지 않는다 — 걸면 처음 크기로 한 번 구운 그림을 늘려 보여서 커질수록 깨진다.
+ * 그동안 격자 바깥 여백이 검게 닫히고, 유리 링·SCROLL DOWN 은 비켜준다(stage1.css html.lapzoom).
+ * 노트북은 box.js 가 줄여 놨을 수도 있어서(오른쪽 아래 기준 scale) 거기서 출발한다. 뒤로 가기로 돌아오면(bfcache) 원래대로.
+ * --lapZoom: 걸리는 시간 · --lapZoomEase: 이징 (stage1.css #s1)
  */
-import { $ } from './utils.js';
+import { $, bezier } from './utils.js';
 
-const DW = 1920, PAD = 60;                  // 무대 폭 · 격자 바깥 여백(무대 좌표)
-const DARK = 0.74;                          // .screen 은 검은 화면에서 사방 13% 안쪽 — 검은 부분 = .screen / 0.74
+const PAD = 60, ASPECT = 1.6, COVER = 1.08;   // 격자 바깥 여백(무대 px) · 정면 화면 비율(16:10) · 격자를 덮고 남길 여유
+const CLICK_GAP = 150;                        // CLICK 이 꺼지고 커지기 시작할 때까지(ms) — 순서가 읽히게
+/* 사진 속 검은 화면의 네 모서리 — 노트북 상자(307×244) 기준, laptop.png 를 화면과 같게 자르고 뒤집어 어두운 픽셀로 잰 값
+ *  [왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래]. 오른쪽 변이 더 길고 아랫변이 더 기울어 있다(오른쪽 앞에서 본 각도) */
+const SCREEN = [[114.25, 12], [300, 31.25], [277.25, 182], [93.25, 137]];
+
+/* 네 점 src → dst 로 보내는 원근 변환 (x' = (a x + b y + c) / (g x + h y + 1), y' 도 같은 식) → CSS matrix3d */
+function homography(src, dst) {
+  const A = [], B = [];
+  src.forEach(([x, y], i) => {
+    const [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v);
+  });
+  for (let c = 0; c < 8; c++) {                              // 가우스 소거 (부분 피벗)
+    let p = c;
+    for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]]; [B[c], B[p]] = [B[p], B[c]];
+    for (let r = 0; r < 8; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k];
+      B[r] -= f * B[c];
+    }
+  }
+  const [a, b, c, d, e, f, g, h] = B.map((v, i) => v / A[i][i]);
+  return 'matrix3d(' + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].join(',') + ')';
+}
+const centroid = (q) => [q.reduce((s, p) => s + p[0], 0) / 4, q.reduce((s, p) => s + p[1], 0) / 4];
+const sizeOf = (q) => (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;   // 윗변·아랫변 평균
 
 export function initLaptopZoom() {
-  const lap = $('#s1laptop'), stage = $('#s1stage'), screen = lap.querySelector('.screen'), root = document.documentElement;
-  let anim = null;
+  const lap = $('#s1laptop'), stage = $('#s1stage'), click = lap.querySelector('.click'), root = document.documentElement;
+  let raf = 0, going = false, base = null;                    // base: 누르기 전 transform (box.js 가 줄여 놨을 수도) — 돌아오면 되돌림
   lap.addEventListener('click', (e) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // 새 탭으로 열기 등은 그대로
     e.preventDefault();
-    if (anim) return;
+    if (going) return;
+    going = true;
     const go = () => location.assign(lap.href);
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { go(); return; }
 
-    const st = stage.getBoundingClientRect(), k = st.width / DW;   // 무대 배율
-    const r = screen.getBoundingClientRect();
-    // 무대 좌표로: 지금 화면 가운데(c) · 옮겨 갈 자리 = 뷰포트 가운데(t) · 노트북 transform 기준점(O, 오른쪽 아래)
-    const c = [(r.left + r.width / 2 - st.left) / k, (r.top + r.height / 2 - st.top) / k];
-    const t = [(innerWidth / 2 - st.left) / k, (innerHeight / 2 - st.top) / k];
-    const O = [lap.offsetLeft + lap.offsetWidth, lap.offsetTop + lap.offsetHeight];
-    // 검은 화면이 격자 안쪽(뷰포트 − 사방 여백)을 다 덮는 배율. 화면이 기울고 모서리가 둥글어 넉넉히 — 1.12 로는 모서리에 흰 틈이 남았다
-    const gw = innerWidth - 2 * PAD * k, gh = innerHeight - 2 * PAD * k;
-    const S = Math.max(gw / (r.width / DARK), gh / (r.height / DARK)) * 1.35;
-    // 기준점 O 에서 translate(T) scale(S) 를 기존 transform 앞에 붙이면: 새 자리 = O + T + S·(c − O) → 이게 t 가 되게
-    const T = [t[0] - O[0] - S * (c[0] - O[0]), t[1] - O[1] - S * (c[1] - O[1])];
-    const base = lap.style.transform || '';
+    // 무대 좌표 기준. 노트북 상자 안 좌표(SCREEN) → 무대 좌표 = 상자 자리 + (box.js 가 줄여 놨으면 오른쪽 아래 기준 scale)
+    const ox = lap.offsetLeft, oy = lap.offsetTop, w = lap.offsetWidth, h = lap.offsetHeight;
+    const m = /scale\(([-\d.]+)\)/.exec(lap.style.transform || ''), k0 = m ? parseFloat(m[1]) : 1;
+    const from = SCREEN.map(([x, y]) => [ox + w + k0 * (x - w), oy + h + k0 * (y - h)]);
+    // 도착: 격자 안쪽(1800 × 무대 높이 − 120)을 덮는 정면 16:10 직사각형, 격자 가운데
+    const H0 = parseFloat(stage.style.height) || 1080, gw = 1920 - 2 * PAD, gh = H0 - 2 * PAD;
+    const RW = Math.max(gw, gh * ASPECT) * COVER, RH = RW / ASPECT, cx = 960, cy = H0 / 2;
+    const to = [[cx - RW / 2, cy - RH / 2], [cx + RW / 2, cy - RH / 2], [cx + RW / 2, cy + RH / 2], [cx - RW / 2, cy + RH / 2]];
+    // 모양 · 크기 · 가운데로 나눠 보간
+    const cA = centroid(from), cB = centroid(to), sA = sizeOf(from), sB = sizeOf(to);
+    const nA = from.map(([x, y]) => [(x - cA[0]) / sA, (y - cA[1]) / sA]), nB = to.map(([x, y]) => [(x - cB[0]) / sB, (y - cB[1]) / sB]);
     const cs = getComputedStyle($('#s1'));
     const dur = (parseFloat(cs.getPropertyValue('--lapZoom')) || 0.9) * 1000;
-    const ease = cs.getPropertyValue('--lapZoomEase').trim() || 'cubic-bezier(.65, 0, .35, 1)';
+    const em = /cubic-bezier\(([^)]+)\)/.exec(cs.getPropertyValue('--lapZoomEase'));
+    const ease = em ? bezier(...em[1].split(',').map(Number)) : bezier(0.65, 0, 0.35, 1);
+    const local = SCREEN.map(([x, y]) => [x, y]);              // 변환 기준 = 상자 왼쪽 위(transform-origin 0 0)
+
+    const frame = (k) => {
+      const t = ease(Math.min(1, Math.max(0, k)));
+      const s = sA * Math.pow(sB / sA, t), g = (s - sA) / (sB - sA);   // 크기는 배율로, 가운데는 그 배율만큼
+      const c = [cA[0] + (cB[0] - cA[0]) * g, cA[1] + (cB[1] - cA[1]) * g];
+      const q = nA.map(([x, y], i) => [c[0] + s * (x + (nB[i][0] - x) * t) - ox, c[1] + s * (y + (nB[i][1] - y) * t) - oy]);
+      lap.style.transform = homography(local, q);
+    };
+    base = { transform: lap.style.transform, origin: lap.style.transformOrigin };
+    lap.style.transformOrigin = '0 0';
+    // will-change: transform 은 걸지 않는다 — 걸면 브라우저가 처음 크기(폭 307)로 한 번 구운 그림을 늘려 보여서, 10배 넘게 커지면 깨진다.
+    // 안 걸면 커지는 동안 제 해상도로 다시 그린다(1초 남짓이라 부담 없음)
+    click.style.animation = 'none'; click.style.visibility = 'hidden';   // 누르는 순간 글자부터 꺼짐
     root.classList.add('lapzoom');
-    anim = lap.animate([{ transform: base || 'none' }, { transform: 'translate(' + T[0] + 'px,' + T[1] + 'px) scale(' + S + ') ' + base }],
-                       { duration: dur, easing: ease, fill: 'forwards' });
-    anim.finished.then(go, () => {});
+    frame(0);
+    const t0 = performance.now() + CLICK_GAP;                  // 글자가 꺼진 걸 보고 나서 커지기 시작
+    const tick = (now) => {
+      const k = Math.max(0, (now - t0) / dur);
+      frame(k);
+      if (k < 1) raf = requestAnimationFrame(tick);
+      else { raf = 0; go(); }
+    };
+    raf = requestAnimationFrame(tick);
   });
   addEventListener('pageshow', (e) => {                        // 뒤로 가기로 돌아왔을 때 — 커진 채로 멈춰 있지 않게
-    if (!e.persisted || !anim) return;
-    anim.cancel(); anim = null;
+    if (!e.persisted || !going) return;
+    cancelAnimationFrame(raf); raf = 0; going = false;
+    lap.style.transform = base ? base.transform : ''; lap.style.transformOrigin = base ? base.origin : '';
+    click.style.animation = click.style.visibility = '';
     root.classList.remove('lapzoom');
   });
 }

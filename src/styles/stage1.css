@@ -95,9 +95,10 @@
 #s1laptop .shot { position: absolute; inset: 0; overflow: hidden; transform: scaleX(-1) }   /* Figma 에서 좌우 반전됨 */
 #s1laptop .shot img { position: absolute; left: -12.74%; top: -13.91%; width: 123.73%; height: 129.19% }   /* Figma 크롭 그대로 */
 /* CLICK — Figma "click" 프레임(110:277) 글자 좌표, 화면 기울기(0.59°)만큼 회전. 깜빡임은 --s1blink */
-/* 글자 다섯 개를 딱 감싸는 상자(142.19,73 ~ 245.28,104.19) — 노트북을 누르면 화면과 같이 커졌다가, work.html 로 넘어간 뒤
-   그 자리에서 사라진다(view-transition-name lapclick 이라 한 장으로 떼어져 페이드, laptopZoom.js · work.html) */
-#s1laptop .click { position: absolute; left: 142.19px; top: 73px; width: 103.09px; height: 31.19px; view-transition-name: lapclick;
+/* 글자 다섯 개를 딱 감싸는 상자(142.19,73 ~ 245.28,104.19). 노트북을 누르면 글자부터 꺼지고, 그다음 노트북이 커진다(laptopZoom.js).
+   페이지를 넘어갈 때 들고 가지 않는다 — 예전엔 view-transition-name 으로 work.html 까지 들고 가 그 자리에서 사라지게 했는데,
+   브라우저가 이 글자를 원래 크기(약 103×31)로 찍어 둔 사진을 10배 넘게 늘려 보여서 계단처럼 깨졌다 */
+#s1laptop .click { position: absolute; left: 142.19px; top: 73px; width: 103.09px; height: 31.19px;
                    animation: s1blink var(--s1blink, 1.1s) steps(1, end) infinite }
 #s1laptop .click img { position: absolute; transform: rotate(.59deg); transform-origin: center }
 #s1laptop .click .c1 { left: 0;       top: 0;      width: 16.09px; height: 18.57px }
