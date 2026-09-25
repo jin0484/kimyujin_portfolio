@@ -10,7 +10,7 @@
  * 순서: 누름 → CLICK 이 꺼짐(깜빡임처럼 페이드 없이 한 번에) → CLICK_GAP 뒤 커지기 시작 (2026-09-25 사용자 요청 — 커지는 동안 글자가 없게).
  * (예전엔 CLICK 을 같이 키워 페이지 전환으로 work.html 까지 들고 갔는데, 브라우저가 원래 크기로 찍은 사진을 늘려 보여 계단처럼 깨졌다)
  * will-change: transform 은 걸지 않는다 — 걸면 처음 크기로 한 번 구운 그림을 늘려 보여서 커질수록 깨진다.
- * 그동안 격자 바깥 여백이 검게 닫히고, 유리 링·SCROLL DOWN 은 비켜준다(stage1.css html.lapzoom).
+ * 그동안 격자 바깥 여백은 노트북 화면이 넘어가는 자리만 검게 칠해지고(--lapQuad — 화면이 먼저 닿는 오른쪽·아래부터), 유리 링·SCROLL DOWN 은 비켜준다(stage1.css html.lapzoom).
  * 노트북은 box.js 가 줄여 놨을 수도 있어서(오른쪽 아래 기준 scale) 거기서 출발한다. 뒤로 가기로 돌아오면(bfcache) 원래대로.
  * --lapZoom: 걸리는 시간 · --lapZoomEase: 이징 (stage1.css #s1)
  */
@@ -20,7 +20,7 @@ const PAD = 60, ASPECT = 1.6, COVER = 1.08;   // 격자 바깥 여백(무대 px)
 const CLICK_GAP = 150;                        // CLICK 이 꺼지고 커지기 시작할 때까지(ms) — 순서가 읽히게
 /* 사진 속 검은 화면의 네 모서리 — 노트북 상자(307×244) 기준, laptop.png 를 화면과 같게 자르고 뒤집어 어두운 픽셀로 잰 값
  *  [왼쪽 위, 오른쪽 위, 오른쪽 아래, 왼쪽 아래]. 오른쪽 변이 더 길고 아랫변이 더 기울어 있다(오른쪽 앞에서 본 각도) */
-const SCREEN = [[114.25, 12], [300, 31.25], [277.25, 182], [93.25, 137]];
+const SCREEN = [[114.25, 12], [300, 31.25], [279.25, 166], [93.25, 137]];   // 오른쪽 아래는 아랫변·오른변 직선을 이어 만나는 점(2026-09-26 다시 잼 — 전엔 키보드 그림자까지 잡혀 182 였다)
 
 /* 네 점 src → dst 로 보내는 원근 변환 (x' = (a x + b y + c) / (g x + h y + 1), y' 도 같은 식) → CSS matrix3d */
 function homography(src, dst) {
@@ -48,7 +48,7 @@ const centroid = (q) => [q.reduce((s, p) => s + p[0], 0) / 4, q.reduce((s, p) =>
 const sizeOf = (q) => (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;   // 윗변·아랫변 평균
 
 export function initLaptopZoom() {
-  const lap = $('#s1laptop'), stage = $('#s1stage'), click = lap.querySelector('.click'), root = document.documentElement;
+  const lap = $('#s1laptop'), stage = $('#s1stage'), s1 = $('#s1'), click = lap.querySelector('.click'), root = document.documentElement;
   let raf = 0, going = false, base = null;                    // base: 누르기 전 transform (box.js 가 줄여 놨을 수도) — 돌아오면 되돌림
   lap.addEventListener('click', (e) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // 새 탭으로 열기 등은 그대로
@@ -74,6 +74,8 @@ export function initLaptopZoom() {
     const em = /cubic-bezier\(([^)]+)\)/.exec(cs.getPropertyValue('--lapZoomEase'));
     const ease = em ? bezier(...em[1].split(',').map(Number)) : bezier(0.65, 0, 0.35, 1);
     const local = SCREEN.map(([x, y]) => [x, y]);              // 변환 기준 = 상자 왼쪽 위(transform-origin 0 0)
+    const sr = stage.getBoundingClientRect(), pr = s1.getBoundingClientRect();
+    const sc = sr.width / 1920, vx = sr.left - pr.left, vy = sr.top - pr.top;   // 무대 좌표 → #s1 안 화면 좌표 (무대는 scale 로 줄어 있음)
 
     const frame = (k) => {
       const t = ease(Math.min(1, Math.max(0, k)));
@@ -81,6 +83,8 @@ export function initLaptopZoom() {
       const c = [cA[0] + (cB[0] - cA[0]) * g, cA[1] + (cB[1] - cA[1]) * g];
       const q = nA.map(([x, y], i) => [c[0] + s * (x + (nB[i][0] - x) * t) - ox, c[1] + s * (y + (nB[i][1] - y) * t) - oy]);
       lap.style.transform = homography(local, q);
+      // 여백의 검은 테는 이 화면 모양(무대 → 화면 좌표)으로만 보이게 — 화면이 격자 밖으로 넘어가는 자리만 까매진다
+      s1.style.setProperty('--lapQuad', 'polygon(' + q.map(([x, y]) => (vx + (x + ox) * sc).toFixed(1) + 'px ' + (vy + (y + oy) * sc).toFixed(1) + 'px').join(', ') + ')');
     };
     base = { transform: lap.style.transform, origin: lap.style.transformOrigin };
     lap.style.transformOrigin = '0 0';
@@ -103,6 +107,7 @@ export function initLaptopZoom() {
     cancelAnimationFrame(raf); raf = 0; going = false;
     lap.style.transform = base ? base.transform : ''; lap.style.transformOrigin = base ? base.origin : '';
     click.style.animation = click.style.visibility = '';
+    s1.style.removeProperty('--lapQuad');
     root.classList.remove('lapzoom');
   });
 }

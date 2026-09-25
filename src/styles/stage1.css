@@ -110,9 +110,11 @@
 /* 노트북 클릭 → 화면 가득 커지며 WORK 로 (laptopZoom.js). --lapZoom: 커지는 시간 · --lapZoomEase: 이징
    그동안 격자 바깥 여백도 work 와 같은 검정으로, 유리 링·SCROLL DOWN 은 먼저 비켜준다 */
 #s1 { --lapZoom: .9s; --lapZoomEase: cubic-bezier(.65, 0, .35, 1) }
-/* 여백만 덮는 검은 테 — 바탕 전체를 어둡게 하면 커지는 도중 격자 안까지 다크 모드처럼 뒤집혀 보여서 테두리만. 노트북이 반쯤 커진 뒤부터 */
-#s1::after { content: ''; position: absolute; inset: 0; border: 3.125vw solid #0c0c0c; pointer-events: none; opacity: 0 }
-html.lapzoom #s1::after { opacity: 1; transition: opacity calc(var(--lapZoom) * .55) calc(var(--lapZoom) * .45) ease-in }
+/* 여백만 덮는 검은 테 — 무대는 격자 밖을 잘라서(clip-path) 커지는 노트북 화면이 여백까지 못 나가므로, 그 대신 칠한다.
+   laptopZoom.js 가 매 프레임 노트북 화면 모양을 --lapQuad(polygon)로 넣어서 테를 그 모양으로만 보이게 한다 — 화면이 격자 밖으로 넘어간 자리만 까매짐.
+   (2026-09-26 사용자 요청 — 예전엔 따로 도는 페이드라 화면이 아직 작을 때부터 네 변이 한꺼번에 어두워졌다) */
+#s1::after { content: ''; position: absolute; inset: 0; border: calc(3.125vw + 1px) solid #0c0c0c; pointer-events: none; display: none }   /* 1px 더 — 격자 안쪽으로 겹쳐야 잘린 노트북 가장자리와 이음매(밝은 실선)가 안 생김. 화면 모양 안에서만 보이니 겹쳐도 화면 위 */
+html.lapzoom #s1::after { display: block; clip-path: var(--lapQuad, inset(50%)) }
 html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity .25s }
 @keyframes s1blink { 0%, 55% { opacity: 1 } 55.01%, 100% { opacity: 0 } }
 /* 화면(검은 부분)의 자리 — 노트북 그림의 어두운 픽셀을 재서 뽑았다. 화면이 기울어져 있어 바깥 사각형을 그대로 쓰면
