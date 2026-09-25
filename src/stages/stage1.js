@@ -489,19 +489,29 @@ function render(q) {                                        // q: --s1stepEase �
   syncBits();                                               // J 위 유리 큐브도 (glassBits.js)
 }
 
-/* ── WORK (임시 연출, 2026-09-24 피드백 "M 이 W 로 뒤집힘") — 퇴장 진행도 p(0~1)에 묶여 있어 휠을 올리면 그대로 되감긴다 ──
- *  ① WORK_FLIP: 다른 글자가 내려가는 동안 M 은 제자리에서 위아래로 뒤집혀(rotateX 180°) W 가 됨
- *  ② WORK_MOVE: 왼쪽 위 첫 칸(격자 모서리에서 WORK_PAD 안쪽, 높이 = 첫 칸 − 위아래 여백)으로 줄어들며 옮겨 붙음
- *  ③ WORK_ORK: 그 오른쪽에 O · R · K 가 하나씩 톡 (페이드 없음). 대문자 높이 = W 높이
- *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림의 W(#s1work)가 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
- *  ④ 화면3(2026-09-24 피드백 "W 가 다시 M 으로") — 마지막 휠에 ABOUT ME 가 들어오는 시간축(about.js aboutPhase, 기다림 + 회전)에 묶여:
- *     O·R·K 가 K·R·O 순서로 톡톡 사라지고(ORK_OUT), W 가 계속 같은 쪽으로 뒤집히며(180° → 360°) ME 의 M 자리로 내려와 M 이 된다(WORK_BACK).
- *     ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것과 같아서 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
- *     ABOUT 과 E 는 원래대로 돌아 들어오고, M 은 그 회전이 끝나는 순간 제자리에 닿는다. 휠을 올리면 거꾸로 */
-const WORK_FLIP = [0, 0.3], WORK_MOVE = [0.42, 0.82], WORK_ORK = [0.84, 0.96], WORK_PAD = 20;
-const ORK_OUT = [0.06, 0.22], WORK_BACK = [0.3, 1];          // 화면3 시간축(0~1) 중 — K 가 먼저 · O 가 마지막으로 사라짐 / W → M 날아감
+/* ── WORK — M 이 선으로 눌렸다가, 그 선이 격자선을 따라 달려가 W 로 펴짐 (2026-09-25, "M 이 이어지는 연출이 짜치다" → 선 방식으로 다시) ──
+ *  글자는 늘 **자기가 서 있는 선으로 접히고, 선에서 펴진다**. 접힌 동안엔 굵기 WORK_LINE 의 초록 선이 되어 **격자선 위를 달린다** —
+ *  머리가 앞서 가고 꼬리가 따라오는 한 줄이라 모서리에선 격자처럼 직각으로 꺾여 돈다. (처음엔 막대 하나를 통째로 옮겼는데 "선을 따라간다"가 안 보였다)
+ *  테두리 위를 지날 땐 굵기 절반이 격자 밖으로 잘리므로 격자 안쪽으로 붙여 달린다.
+ *  화면1 → 2 (퇴장 진행도 p — 휠에 묶여 되감김):
+ *    ① W_SQUASH  M 이 바닥선(격자 아랫선)으로 눌려 선이 됨 — 다른 글자가 바닥 아래로 빠지는 동안
+ *    ② W_TRAVEL  바닥 테두리를 따라 왼쪽 → 왼쪽 테두리를 타고 위로 → 첫 가로선을 따라 오른쪽, W 자리에서 멈춤. 가는 동안 길이가 M 폭 → W 폭
+ *    ③ W_UNFOLD  첫 가로선에서 W(M 을 위아래로 뒤집은 그림)가 위로 펴짐
+ *    ④ W_ORK     O · R · K 가 같은 선 아래에서 차례로 솟음(선 아래는 가려져 있음)
+ *  화면2 → 3 (ABOUT ME 가 들어오는 시간축 t — about.js aboutPhase):
+ *    ① M_ORK  K 부터 선 아래로 가라앉음  ② M_FOLD  W 가 첫 가로선으로 접힘
+ *    ③ M_TRAVEL  첫 가로선을 따라 오른쪽 → 두 번째 세로 겹선(RAIL_X)을 타고 아래로 → 바닥선을 따라 왼쪽, ME 의 M 자리에서 멈춤
+ *    ④ M_UNFOLD  바닥선에서 M 이 펴져 ME 의 M 이 됨. 달리는 길은 왼쪽 ABOUT 기둥(폭 159)에 닿지 않는다
+ *    ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것이라 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
+ *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림(#s1work .w)이 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
+ *  ※ O·R·K 는 아직 글꼴(Chillax) 임시 — Figma 로 받으면 KIM YUJIN 과 같은 서체 그림으로 */
+const W_SQUASH = [0, 0.16], W_TRAVEL = [0.16, 0.74], W_UNFOLD = [0.74, 0.88], W_ORK = [0.86, 1];
+const M_ORK = [0, 0.2], M_FOLD = [0.1, 0.28], M_TRAVEL = [0.28, 0.84], M_UNFOLD = [0.84, 1];
+const WORK_PAD = 20, WORK_LINE = 5, ORK_RISE = 0.5;             // W 위·왼쪽 여백 · 달리는 선 굵기(무대 px) · ORK 한 글자가 솟는 데 쓰는 몫(ORK 구간 대비 — 나머지는 차례 간격)
+const RAIL_X = 60 + 586;                                     // 화면3 에서 타고 내려가는 세로선 — 두 번째 겹선의 왼선(격자 586). ME 의 M 오른끝보다 오른쪽이어야 함
 const ME_M = [173, 802, 482.636 * 0.4247, 157.922];          // ME 의 M 자리 — 격자 좌표 [x, y, 폭, 높이] (about.js ITEMS 의 ME + me.svg 의 M)
-const work = $('#s1work'), workW = work.querySelector('.w'), workL = [...work.querySelectorAll('span')];
+const work = $('#s1work'), workW = work.querySelector('.w'), workSvg = work.querySelector('.run'), workRun = workSvg.querySelector('path'), workL = [...work.querySelectorAll('span')];
+const easeFold = bezier(0.5, 0, 0.75, 0), easeRun = bezier(0.6, 0, 0.25, 1), easeOpen = bezier(0.2, 0.8, 0.3, 1);   // 접힘은 점점 빨리 · 달리기는 길게 가라앉게 · 펴짐은 빨리 열리고 천천히 멈춤
 let orkM = null;                                            // O·R·K 글꼴 치수(글자 크기 대비) — 대문자 높이 · 글자 상자 윗변에서 대문자 윗변까지
 function orkMetrics() {
   const g = document.createElement('canvas').getContext('2d'), cs = getComputedStyle(workL[0]);
@@ -512,35 +522,80 @@ function orkMetrics() {
 }
 const seg = (p, [a, b]) => Math.min(1, Math.max(0, (p - a) / (b - a)));
 const smooth = (x) => x * x * (3 - 2 * x);
+const railLen = (pts) => pts.slice(1).reduce((s, q, i) => s + Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]), 0);
+function railCut(pts, s0, s1) {                              // 꺾인 길 pts 에서 길이 s0 ~ s1 구간 — 모서리 점까지 그대로 넣어 직각으로 꺾이게
+  const out = [];
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const lo = Math.max(s0, acc), hi = Math.min(s1, acc + L);
+    if (L > 0 && hi >= lo) {
+      const at = (s) => [lerp(a[0], b[0], (s - acc) / L), lerp(a[1], b[1], (s - acc) / L)];
+      if (!out.length) out.push(at(lo));
+      out.push(at(hi));
+    }
+    acc += L;
+  }
+  return out;
+}
 function renderWork(q) {
   const p = q / N, on = p > 0;
   work.classList.toggle('on', on);
   letters[2].style.visibility = on ? 'hidden' : '';
   if (!on) return;
   const nm = $('#s1name'), P = NAME_A[2], Q = NAME_B[2];      // 출발 = M 의 지금 자리 (무대 좌표)
-  const hw = lerp(P[2], Q[2], swapS), hh = lerp(P[3], Q[3], swapS);
-  const hx = nm.offsetLeft + lerp(P[0], Q[0], swapS), hy = nm.offsetTop + nm.offsetHeight - lerp(P[1], Q[1], swapS) - hh;
-  const sy = Math.max(1, (parseFloat(stage.style.height) || 1080) - 120) / 960;   // 격자 세로 배율 — 첫 가로선은 격자 237
-  const th = 237 * sy - 2 * WORK_PAD, tw = th * hw / hh, tx = 60 + WORK_PAD, ty = 60 + WORK_PAD;   // 도착 = 왼쪽 위 첫 칸
-  const m = smooth(seg(p, WORK_MOVE));
-  let x = lerp(hx, tx, m), y = lerp(hy, ty, m), w = lerp(hw, tw, m), h = lerp(hh, th, m), deg = 180 * smooth(seg(p, WORK_FLIP));
+  const hw = lerp(P[2], Q[2], swapS), hh = lerp(P[3], Q[3], swapS), hx = nm.offsetLeft + lerp(P[0], Q[0], swapS);
+  const floor = nm.offsetTop + nm.offsetHeight - lerp(P[1], Q[1], swapS);   // M 이 서 있는 선 = 격자 아랫선
+  const sy = Math.max(1, (parseFloat(stage.style.height) || 1080) - 120) / 960;   // 격자 세로 배율
+  const line = 60 + 237 * sy;                                 // 첫 가로선(격자 237) — W · ORK 가 앉는 선
+  const th = line - 60 - WORK_PAD, tw = th * hw / hh, tx = 60 + WORK_PAD;   // W = 왼쪽 위 첫 칸, 바닥이 첫 가로선
+  const mx = 60 + ME_M[0] * sy, mw = ME_M[2] * sy, mh = ME_M[3] * sy;       // ME 의 M — 바닥이 격자 아랫선
   const ab = aboutPhase(), t = ab.total > 0 ? ab.am / ab.total : 0;   // 화면3 — ABOUT ME 가 들어온 정도
-  if (t > 0) {
-    const k = smooth(seg(t, WORK_BACK));
-    x = lerp(x, 60 + ME_M[0] * sy, k); y = lerp(y, 60 + ME_M[1] * sy, k);
-    w = lerp(w, ME_M[2] * sy, k); h = lerp(h, ME_M[3] * sy, k);
-    deg = 180 + 180 * k;                                      // 같은 쪽으로 계속 뒤집혀 다시 M
+  // 지금 모습 — 글자(g: 왼끝 · 서 있는 선 · 폭 · 높이 · 뒤집힘 · 펴진 정도 s · 접히는 줄 ly) 와 달리는 선(run: 길 · 꼬리 · 머리)
+  const e = WORK_LINE / 2, fl = floor - e, ln = line, lx0 = 60 + e;   // 달리는 줄 — 바닥·왼쪽은 테두리라 굵기 절반만큼 안쪽
+  let g = null, run = null, fade = 1;
+  if (t <= 0) {
+    if (p < W_TRAVEL[0]) g = { x: hx, y: floor, ly: fl, w: hw, h: hh, flip: false, s: 1 - easeFold(seg(p, W_SQUASH)) };
+    else if (p < W_UNFOLD[0]) {
+      const u = easeRun(seg(p, W_TRAVEL)), pts = [[hx + hw, fl], [hx, fl], [lx0, fl], [lx0, ln], [tx + tw, ln]];
+      const head = lerp(hw, railLen(pts), u);
+      run = [pts, head - lerp(hw, tw, u), head];
+    } else g = { x: tx, y: line, ly: ln, w: tw, h: th, flip: true, s: easeOpen(seg(p, W_UNFOLD)) };
+  } else {
+    if (t < M_TRAVEL[0]) g = { x: tx, y: line, ly: ln, w: tw, h: th, flip: true, s: 1 - easeFold(seg(t, M_FOLD)) };
+    else if (t < M_UNFOLD[0]) {
+      const u = easeRun(seg(t, M_TRAVEL)), pts = [[tx, ln], [tx + tw, ln], [RAIL_X, ln], [RAIL_X, fl], [mx, fl]];
+      const head = lerp(tw, railLen(pts), u);
+      run = [pts, head - lerp(tw, mw, u), head];
+    } else g = { x: mx, y: floor, ly: fl, w: mw, h: mh, flip: false, s: easeOpen(seg(t, M_UNFOLD)) };
   }
-  workW.style.left = x + 'px'; workW.style.top = y + 'px'; workW.style.width = w + 'px'; workW.style.height = h + 'px';
-  workW.style.transform = deg % 360 ? 'rotateX(' + deg + 'deg)' : '';
+  if (g && g.s < 0.12) { run = [[[g.x, g.ly], [g.x + g.w, g.ly]], 0, g.w]; fade = 1 - g.s / 0.12; }   // 거의 다 접혔거나 막 펴지기 시작할 때 — 선과 겹쳐 이어 보이게
+  if (g && g.s > 0.001) {                                     // 글자는 서 있는 선에 바닥을 붙인 채 높이만 줄고 늘어남 (그림은 비율 고정 없이 늘어나는 SVG)
+    const hh2 = g.h * g.s;
+    workW.style.visibility = '';
+    workW.style.left = g.x + 'px'; workW.style.top = g.y - hh2 + 'px'; workW.style.width = g.w + 'px'; workW.style.height = hh2 + 'px';
+    workW.style.transform = g.flip ? 'scaleY(-1)' : '';
+  } else workW.style.visibility = 'hidden';
+  if (run) {
+    const pts = railCut(run[0], Math.max(0, run[1]), run[2]);
+    workRun.setAttribute('d', 'M' + pts.map((q) => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('L'));
+    workRun.setAttribute('stroke-width', WORK_LINE);
+    workSvg.setAttribute('width', 1920); workSvg.setAttribute('height', parseFloat(stage.style.height) || 1080);
+    workSvg.style.display = 'block'; workSvg.style.opacity = fade < 1 ? fade : '';
+  } else workSvg.style.display = 'none';
+  // O·R·K — 첫 가로선 위에 앉음. 선 아래는 잘라 둬서, 아래에서 솟아오르고(화면2) 아래로 가라앉는다(화면3)
   if (!orkM) orkM = orkMetrics();
-  const fs = th / orkM.cap, gap = th * 0.16;
+  const fs = th / orkM.cap, gap = th * 0.16, below = fs * (1 - orkM.top - orkM.cap);   // 글자 상자 아랫변 ~ 기준선
+  const n = workL.length, span = (k, [a, z]) => { const L = z - a, st = a + L * (1 - ORK_RISE) * k / (n - 1); return [st, st + L * ORK_RISE]; };
   let lx = tx + tw + gap;
   workL.forEach((el, i) => {
-    el.style.fontSize = fs + 'px'; el.style.left = lx + 'px'; el.style.top = ty - fs * orkM.top + 'px';
+    const r = easeOpen(seg(p, span(i, W_ORK))) * (1 - easeFold(seg(t, span(n - 1 - i, M_ORK))));   // 솟은 정도 — K 가 먼저 가라앉음
+    const d = (1 - r) * th * 1.06;                            // 아래로 내려가 있는 거리
+    el.style.fontSize = fs + 'px'; el.style.left = lx + 'px';
+    el.style.top = line - fs * (orkM.top + orkM.cap) + d + 'px';
+    el.style.clipPath = 'inset(0 0 ' + (below + d) + 'px 0)';
+    el.classList.toggle('on', r > 0);
     lx += el.offsetWidth + gap;
-    const k = i / (workL.length - 1);
-    el.classList.toggle('on', p >= lerp(WORK_ORK[0], WORK_ORK[1], k) && t < lerp(ORK_OUT[1], ORK_OUT[0], k));
   });
 }
 

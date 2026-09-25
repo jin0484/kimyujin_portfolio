@@ -227,10 +227,12 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
 .s1-i2 { left: 1521px;     bottom: 1px;    width: 34px;      height: 233px }
 .s1-n  { left: 1603.629px; bottom: -0.4px; width: 193.889px; height: 234.404px }
 
-/* WORK — 퇴장 때 M 이 뒤집혀 W 가 되고 왼쪽 위 첫 칸에 붙은 뒤 O·R·K 가 차례로 (stage1.js renderWork). ※ 임시 연출 — Figma 오면 교체
-   자리·크기·회전은 JS 가 인라인으로. W 는 M 과 같은 그림(메인 초록), O·R·K 는 검정 글꼴 — 페이드 없이 한 글자씩 톡 나타남 */
+/* WORK — M 이 선으로 눌렸다가 격자선을 타고 가서 W 로 펴짐, O·R·K 는 선 아래에서 솟음 (stage1.js renderWork). 마지막 휠엔 거꾸로 ME 의 M 으로
+   자리·크기는 JS 가 인라인으로. W 는 M 과 같은 그림(메인 초록), O·R·K 는 검정 글꼴(임시). 접힌 동안의 선(.run)은 머리·꼬리가 있는 한 줄로 격자선 위를 달리며 모서리에서 직각으로 꺾임 */
 #s1work { position: absolute; left: 0; top: 0; display: none; pointer-events: none; z-index: 1 }
 #s1work.on { display: block }
+#s1work .run { position: absolute; left: 0; top: 0; display: none; overflow: visible }   /* 격자선을 따라 달리는 선 — 무대 좌표 그대로 그림 */
+#s1work .run path { fill: none; stroke: var(--main); stroke-linejoin: miter; stroke-linecap: butt }
 #s1work span {
   position: absolute; left: 0; top: 0; visibility: hidden;
   font-family: 'Chillax', var(--grot); font-weight: 500; line-height: 1; color: #0C0C0C; white-space: nowrap;
