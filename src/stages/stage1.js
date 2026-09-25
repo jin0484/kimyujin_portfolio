@@ -497,9 +497,10 @@ function render(q) {                                        // q: --s1stepEase �
  *    ① W_SQUASH  M 이 바닥선(격자 아랫선)으로 눌려 선이 됨 — 다른 글자가 바닥 아래로 빠지는 동안
  *    ② W_TRAVEL  바닥 테두리를 따라 왼쪽 → 왼쪽 테두리를 타고 위로 → 첫 가로선을 따라 오른쪽, W 자리에서 멈춤. 가는 동안 길이가 M 폭 → W 폭
  *    ③ W_UNFOLD  첫 가로선에서 W(M 을 위아래로 뒤집은 그림)가 위로 펴짐
- *    ④ W_ORK     O · R · K 가 같은 선 아래에서 차례로 솟음(선 아래는 가려져 있음)
+ *    ④ W 가 다 펴지면 O · R · K 를 펜으로 쓰듯 차례로 그림 — 세 글자 펜 선을 한 줄로 이어서. 휠 시퀀스와 따로 자기 시간(--s1orkDraw, ease-in-out)으로 쓰고,
+ *       휠을 올리면 W 가 접히는 만큼(W_UNFOLD) 같이 지워진다
  *  화면2 → 3 (ABOUT ME 가 들어오는 시간축 t — about.js aboutPhase):
- *    ① M_ORK  K 부터 선 아래로 가라앉음  ② M_FOLD  W 가 첫 가로선으로 접힘
+ *    ① M_ORK  쓴 걸 되감듯 K 꼬리부터 지워짐  ② M_FOLD  W 가 첫 가로선으로 접힘
  *    ③ M_TRAVEL  첫 가로선을 따라 오른쪽 → 두 번째 세로 겹선(RAIL_X)을 타고 아래로 → 바닥선을 따라 왼쪽, ME 의 M 자리에서 멈춤
  *    ④ M_UNFOLD  바닥선에서 M 이 펴져 ME 의 M 이 됨. 달리는 길은 왼쪽 ABOUT 기둥(폭 159)에 닿지 않는다
  *    ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것이라 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
@@ -507,10 +508,12 @@ function render(q) {                                        // q: --s1stepEase �
  *  O·R·K 는 Figma "WORK" 시안(202:29, 2026-09-26)의 필기체 벡터 그대로(public/s1/work-o·r·k.svg — Mrs Saint Delafield 를 가로로 늘려 윤곽선으로 만든 것).
  *  자리·크기는 시안에서 W 글자 상자(WORK_WBOX)를 기준으로 잰 비율을 우리 W 크기로 옮긴다 — o 가 W 오른쪽 기둥에 겹쳐 들어가고,
  *  그 위에 W 기둥 조각(WORK_WEAVE, 시안의 Vector 7)을 한 번 더 얹어 o 가 W 를 감고 지나가는 것처럼 보이게 한다(W 가 다 펴져 있고 o 가 보일 때만).
- *  시안의 W 는 사이트를 캡처한 그림이라, 그 안의 W 글자 경계를 픽셀로 재서 기준으로 삼았다(가로:세로 1.272 — 우리 W 1.277 과 같음) */
-const W_SQUASH = [0, 0.16], W_TRAVEL = [0.16, 0.74], W_UNFOLD = [0.74, 0.88], W_ORK = [0.86, 1];
+ *  시안의 W 는 사이트를 캡처한 그림이라, 그 안의 W 글자 경계를 픽셀로 재서 기준으로 삼았다(가로:세로 1.272 — 우리 W 1.277 과 같음)
+ *  그려지는 연출: 글자마다 펜이 지나가는 가운데 선(index.html 의 mask path — O 는 한 획, R·K 는 고리+기둥 / 보울·팔+다리+꼬리 두 획)을 굵게 그은 마스크로 덮고,
+ *  그 선을 stroke-dash 로 앞에서부터 늘려 가며 덮인 곳만 보이게 한다. 선 굵기는 다 그렸을 때 글자 획이 남김없이 덮이도록 맞춤 */
+const W_SQUASH = [0, 0.16], W_TRAVEL = [0.16, 0.74], W_UNFOLD = [0.74, 0.88];
 const M_ORK = [0, 0.2], M_FOLD = [0.1, 0.28], M_TRAVEL = [0.28, 0.84], M_UNFOLD = [0.84, 1];
-const WORK_PAD = 20, WORK_LINE = 5, ORK_RISE = 0.5;             // W 위·왼쪽 여백 · 달리는 선 굵기(무대 px) · ORK 한 글자가 솟는 데 쓰는 몫(ORK 구간 대비 — 나머지는 차례 간격)
+const WORK_PAD = 20, WORK_LINE = 5;                          // W 위·왼쪽 여백 · 달리는 선 굵기(무대 px)
 /* Figma 202:29 좌표 — W 글자 상자 [x, y, 폭, 높이] · o · r · k 상자 · o 앞을 지나는 W 기둥 조각 */
 const WORK_WBOX = [10.534, 19.586, 96.87, 76.138];
 const WORK_ORKBOX = [[80, 36, 91, 52], [146, 39, 108, 49], [236, 41, 108, 47]];
@@ -518,6 +521,24 @@ const WORK_WEAVE = [88.5, 47, 15, 31.5];
 const RAIL_X = 60 + 586;                                     // 화면3 에서 타고 내려가는 세로선 — 두 번째 겹선의 왼선(격자 586). ME 의 M 오른끝보다 오른쪽이어야 함
 const ME_M = [173, 802, 482.636 * 0.4247, 157.922];          // ME 의 M 자리 — 격자 좌표 [x, y, 폭, 높이] (about.js ITEMS 의 ME + me.svg 의 M)
 const work = $('#s1work'), workW = work.querySelector('.w'), workSvg = work.querySelector('.run'), workRun = workSvg.querySelector('path'), workL = [...work.querySelectorAll('.ork')], workWeave = work.querySelector('.weave');
+const workPen = workL.map((el) => [...el.querySelectorAll('mask path')]);   // O·R·K 펜 선(획 순서대로)
+let penLen = null;                                          // 펜 선 길이(글자 좌표) — 처음 그릴 때 한 번 잼
+let orkS = 0, orkRaf = 0, orkT = 0;                          // O·R·K 쓰기 시계 — 0 ~ 1(이징 전 시간 비율)
+const easeInOut = bezier(0.42, 0, 0.58, 1);
+function orkTick(now) {                                     // W 가 다 펴진 뒤 휠과 따로 굴러감 — 매 프레임 WORK 를 다시 그림
+  const dt = Math.max(0, Math.min(50, now - orkT)); orkT = now;
+  const ms = (parseFloat(getComputedStyle(stage).getPropertyValue('--s1orkDraw')) || 1.8) * 1000 / tempo.k;
+  orkS = Math.min(1, orkS + dt / ms);
+  renderWork(eased(pos));
+  orkRaf = orkS < 1 && orkRaf ? requestAnimationFrame(orkTick) : 0;
+}
+function orkEased(cap) {                                    // 쓴 정도(이징 뒤) — cap 을 넘으면 시계를 cap 자리로 되돌림(휠을 올려 W 가 접히는 동안)
+  if (easeInOut(orkS) <= cap) return easeInOut(orkS);
+  let lo = 0, hi = orkS;
+  for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (easeInOut(m) < cap) lo = m; else hi = m; }
+  orkS = lo;
+  return cap;
+}
 const easeFold = bezier(0.5, 0, 0.75, 0), easeRun = bezier(0.6, 0, 0.25, 1), easeOpen = bezier(0.2, 0.8, 0.3, 1);   // 접힘은 점점 빨리 · 달리기는 길게 가라앉게 · 펴짐은 빨리 열리고 천천히 멈춤
 const seg = (p, [a, b]) => Math.min(1, Math.max(0, (p - a) / (b - a)));
 const smooth = (x) => x * x * (3 - 2 * x);
@@ -541,7 +562,7 @@ function renderWork(q) {
   const p = q / N, on = p > 0;
   work.classList.toggle('on', on);
   letters[2].style.visibility = on ? 'hidden' : '';
-  if (!on) return;
+  if (!on) { orkS = 0; cancelAnimationFrame(orkRaf); orkRaf = 0; return; }
   const nm = $('#s1name'), P = NAME_A[2], Q = NAME_B[2];      // 출발 = M 의 지금 자리 (무대 좌표)
   const hw = lerp(P[2], Q[2], swapS), hh = lerp(P[3], Q[3], swapS), hx = nm.offsetLeft + lerp(P[0], Q[0], swapS);
   const floor = nm.offsetTop + nm.offsetHeight - lerp(P[1], Q[1], swapS);   // M 이 서 있는 선 = 격자 아랫선
@@ -582,18 +603,26 @@ function renderWork(q) {
     workSvg.setAttribute('width', 1920); workSvg.setAttribute('height', parseFloat(stage.style.height) || 1080);
     workSvg.style.display = 'block'; workSvg.style.opacity = fade < 1 ? fade : '';
   } else workSvg.style.display = 'none';
-  // O·R·K — 시안 자리 그대로(W 글자 상자 기준 비율). 첫 가로선 아래는 잘라 둬서, 아래에서 솟아오르고(화면2) 아래로 가라앉는다(화면3)
+  // O·R·K — 시안 자리 그대로(W 글자 상자 기준 비율). 세 글자 펜 선을 한 줄로 이어 그 길이의 u 만큼 그림 — 들어올 땐 O 부터 쓰고(화면2), 나갈 땐 K 꼬리부터 되감아 지움(화면3)
   const k = th / WORK_WBOX[3], fx = (X) => tx + (X - WORK_WBOX[0]) * k, fy = (Y) => line - th + (Y - WORK_WBOX[1]) * k;
-  const n = workL.length, span = (i, [a, z]) => { const L = z - a, st = a + L * (1 - ORK_RISE) * i / (n - 1); return [st, st + L * ORK_RISE]; };
-  let rO = 0;
+  const writing = p >= W_UNFOLD[1] && t <= 0;                // W 가 다 펴져 있는 동안만 시계가 감
+  if (writing && orkS < 1 && !orkRaf) { orkT = performance.now(); orkRaf = requestAnimationFrame(orkTick); }
+  else if (!writing && orkRaf) { cancelAnimationFrame(orkRaf); orkRaf = 0; }
+  const u = orkEased(seg(p, W_UNFOLD)) * (1 - easeInOut(seg(t, M_ORK)));
+  if (!penLen) penLen = workPen.map((ps) => ps.map((pe) => pe.getTotalLength()));
+  let rest = u * penLen.flat().reduce((a, b) => a + b, 0), rO = 0;
   workL.forEach((el, i) => {
-    const r = easeOpen(seg(p, span(i, W_ORK))) * (1 - easeFold(seg(t, span(n - 1 - i, M_ORK))));   // 솟은 정도 — K 가 먼저 가라앉음
-    const [X, Y, w, h] = WORK_ORKBOX[i], y0 = fy(Y), hh = h * k;
-    const d = (1 - r) * (line - y0 + 2);                      // 아래로 내려가 있는 거리 — 다 내려가면 첫 가로선 아래로 완전히 숨음
-    el.style.left = fx(X) + 'px'; el.style.top = y0 + d + 'px'; el.style.width = w * k + 'px'; el.style.height = hh + 'px';
-    el.style.clipPath = 'inset(0 0 ' + Math.max(0, y0 + d + hh - line) + 'px 0)';
-    el.classList.toggle('on', r > 0);
-    if (i === 0) rO = r;
+    const [X, Y, w, h] = WORK_ORKBOX[i];
+    el.style.left = fx(X) + 'px'; el.style.top = fy(Y) + 'px'; el.style.width = w * k + 'px'; el.style.height = h * k + 'px';
+    let drawn = 0;
+    workPen[i].forEach((pe, j) => {
+      const L = penLen[i][j], s = Math.min(L, Math.max(0, rest));
+      rest -= L; drawn += s;
+      pe.style.visibility = s > 0 ? '' : 'hidden';           // 길이 0 이어도 둥근 끝이 점으로 찍히므로 아예 숨김
+      pe.style.strokeDasharray = L + ' ' + L; pe.style.strokeDashoffset = L - s;
+    });
+    el.classList.toggle('on', drawn > 0);
+    if (i === 0) rO = drawn;
   });
   // o 앞을 지나는 W 기둥 조각 — W 가 다 펴져 있고 o 가 보일 때만 (접히거나 펴지는 중엔 W 모양이 달라 어긋나므로)
   const weave = g && g.flip && g.s > 0.999 && rO > 0;
