@@ -3,3 +3,12 @@
    가운데 있던 초록 CLICK 은 2026-09-24 사용자 요청으로 뺐다 */
 body { background: #0c0c0c; --cursor: var(--cursorDark) }   /* 화면 전체가 어두우니 커서 기본색부터 초록 — 안 그러면 첫 움직임에서 0.35초 동안 검정이라 안 보인다 */
 #work { position: fixed; inset: 0; background: #0c0c0c; display: grid; place-items: center; clip-path: inset(var(--pad)) }   /* 화면 1 과 같은 규칙 — 격자 바깥은 잘라냄 */
+/* 닫기 X — 격자 오른쪽 위 모서리에서 1920 기준 20px 안쪽(네모박스 DRAG ↗ 와 같은 여백), 32px, 메인 초록. 올리면 90° 돌아 눌린다는 신호 */
+#workclose {
+  position: fixed; top: calc(var(--pad) + 1.0417vw); right: calc(var(--pad) + 1.0417vw); z-index: 1;
+  width: 1.6667vw; height: 1.6667vw; padding: 0; margin: 0; border: 0; background: none; color: var(--main);
+  transition: transform .35s cubic-bezier(.2, .7, .3, 1);
+}
+#workclose svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: square }
+#workclose:hover, #workclose:focus-visible { transform: rotate(90deg) }
+#workclose:focus-visible { outline: 1px solid var(--main); outline-offset: .4vw }
