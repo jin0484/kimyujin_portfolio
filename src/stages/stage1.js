@@ -508,8 +508,9 @@ function render(q) {                                        // q: --s1stepEase �
  *    ④ M_UNFOLD  바닥선에서 M 이 펴져 ME 의 M 이 됨. 달리는 길은 왼쪽 ABOUT 기둥(폭 159)에 닿지 않는다
  *    ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것이라 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
  *  화면3 → 슬로건 (ABOUT·E·노트북이 나간 뒤 휠 — slogan.js sloganPhase):
- *    ① S_FOLD  ME 의 M 이 바닥선으로 접힘  ② S_TRAVEL  바닥선을 따라 오른쪽, 슬로건 M 자리에서 멈춤. 가는 동안 길이가 M 폭 → 슬로건 M 폭
- *    ③ S_UNFOLD  M 이 펴지며 글자 기준선(g·y 꼬리만큼 바닥선 위)까지 올라섬 → 이어서 나머지 글자가 타이핑됨(slogan.js)
+ *    ① S_FOLD  ME 의 M 이 바닥선으로 접힘
+ *    ② S_TRAVEL  W 가 왔던 길을 거꾸로 — 바닥선을 따라 왼쪽 → 왼쪽 테두리를 타고 위로 → 첫 가로선(158)을 따라 오른쪽, 슬로건 M 자리에서 멈춤. 가는 동안 길이가 M 폭 → 슬로건 M 폭
+ *    ③ S_UNFOLD  첫 가로선에서 M 이 펴짐 → 이어서 나머지 글자가 타이핑됨(slogan.js)
  *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림(#s1work .w)이 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
  *  O·R·K 는 Figma "WORK" 시안(202:29, 2026-09-26)의 필기체 벡터 그대로(public/s1/work-o·r·k.svg — Mrs Saint Delafield 를 가로로 늘려 윤곽선으로 만든 것).
  *  자리·크기는 시안에서 W 글자 상자(WORK_WBOX)를 기준으로 잰 비율을 우리 W 크기로 옮긴다 — o 가 W 오른쪽 기둥에 겹쳐 들어가고,
@@ -595,19 +596,16 @@ function renderWork(q) {
       const head = lerp(tw, railLen(pts), u);
       run = [pts, head - lerp(tw, mw, u), head];
     } else g = { x: mx, y: floor, ly: fl, w: mw, h: mh, flip: false, s: easeOpen(seg(t, M_UNFOLD)) };
-    const sp = t >= 1 ? sloganPhase() : 0;                   // 슬로건 — ME 의 M 이 바닥선을 따라 오른쪽 아래로
+    const sp = t >= 1 ? sloganPhase() : 0;                   // 슬로건 — ME 의 M 이 W 가 왔던 길을 거꾸로 되짚어 왼쪽 위 첫 가로선으로
     if (sp > 0) {
-      const S = sloganM(), sx = S.x, sw = S.w;
+      const S = sloganM(), sx = S.x, sw = S.w, sl = S.base;
       g = null;
       if (sp < S_TRAVEL[0]) g = { x: mx, y: floor, ly: fl, w: mw, h: mh, flip: false, s: 1 - easeFold(seg(sp, S_FOLD)) };
       else if (sp < S_UNFOLD[0]) {
-        const u = easeRun(seg(sp, S_TRAVEL)), pts = [[mx, fl], [sx + sw, fl]];
+        const u = easeRun(seg(sp, S_TRAVEL)), pts = [[mx + mw, fl], [mx, fl], [lx0, fl], [lx0, sl], [sx + sw, sl]];
         const head = lerp(mw, railLen(pts), u);
         run = [pts, head - lerp(mw, sw, u), head];
-      } else {
-        const o = easeOpen(seg(sp, S_UNFOLD)), y = floor - S.lift * o;   // 펴지면서 기준선까지 올라섬
-        g = { x: sx, y, ly: y - e, w: sw, h: S.h, flip: false, s: o };
-      }
+      } else g = { x: sx, y: sl, ly: sl, w: sw, h: S.h, flip: false, s: easeOpen(seg(sp, S_UNFOLD)) };
     }
   }
   if (g && g.s < 0.12) { run = [[[g.x, g.ly], [g.x + g.w, g.ly]], 0, g.w]; fade = 1 - g.s / 0.12; }   // 거의 다 접혔거나 막 펴지기 시작할 때 — 선과 겹쳐 이어 보이게
