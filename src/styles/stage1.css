@@ -150,8 +150,9 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
    --s1bodyInk: 본문 글자색. 예전 초록(#C3DCA8)과 밝기를 비슷하게 맞춰서 화면의 무게는 그대로 */
 #s1 { --s1bodyInk: #BDBDB8 }
 #s1body .ts:not(.hv) { color: var(--s1bodyInk) }
-/* 오른쪽 위 바뀐 글(SPOILER) — 단어에 호버하면 초록 배경 + 흰 글자. 배경은 box-shadow 로 좌우 4px 넓혀서 글자 자리는 안 움직임 */
-#s1body .ts.hv span:hover { background: var(--main); color: #fff; box-shadow: -4px 0 0 var(--main), 4px 0 0 var(--main); z-index: 1 }
+/* 오른쪽 위 바뀐 글(SPOILER) — 호버 효과(초록 배경)는 2026-09-26 사용자 요청으로 뺐다. 대신 화면2 유리 구슬이 지나가면
+   걸친 줄이 구슬 양옆으로 눌려 찌그러진다 (stage1.js bendBody — 단어마다 transform 에 scaleX 를 덧붙임, 기준은 왼끝) */
+#s1body .ts.hv span { transform-origin: 0 0 }
 
 /* SCROLL DOWN — 격자 아래 여백(3.125vw = 1920 기준 60px) 한가운데. 창 안에서 글자가 아래에서 올라오고, 그 뒤로 둥둥 떠 있는다.
    무대가 아니라 화면(#s1) 기준이라 여백 안에 그대로 놓인다 — 무대였으면 clip-path 에 잘려 안 보인다.

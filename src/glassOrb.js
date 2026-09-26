@@ -1,7 +1,10 @@
 /* ═══════════ 유리 구슬 — 화면 2(WORK), 네모박스가 나오기 전 빈 공간에 떠다니는 큰 구슬 (2026-09-24 피드백) ═══════════
  *
- * KIM YUJIN 퇴장이 끝나갈 때(진행도 GROW 구간) 커지며 나타나, 가운데·왼쪽 빈 공간을 천천히 떠다니다 벽에 튕긴다.
- *   — 떠다니는 범위는 왼쪽 위 WORK 줄(첫 가로선 위) · 오른쪽 SPOILER 단(1273 부터) · 노트북을 피한 네모
+ * KIM YUJIN 퇴장이 끝나갈 때(진행도 GROW 구간) 커지며 나타나, 격자 안을 천천히 떠다니다 벽에 튕긴다.
+ *   — 떠다니는 범위는 격자 전체에서 왼쪽 위 WORK 글자 자리와 오른쪽 아래 노트북을 뺀 곳(둘은 벽처럼 튕겨 나옴 — avoid).
+ *     노트북을 피하는 건 굴절 배경이 바탕·격자 선뿐이라 노트북 위를 지나면 종이색으로 가려져서.
+ *   SPOILER 단 위를 지나가면 걸친 줄이 구슬 양옆으로 눌려 찌그러진다(2026-09-26 사용자 요청 — 예전엔 SPOILER 단 앞에서 튕겼다).
+ *     구슬 자리는 onOrb 로 넘겨주고 글은 stage1.js bendBody 가 누른다
  * 건들면 스친 방향으로 튕겨 나갔다가 천천히 원래 빠르기로 돌아온다(U 링 · J 큐브와 같은 "건들면 튕김").
  * 네모박스가 나오면(두 번째 휠) 박스가 나오는 만큼 SPOILER 맨 아랫줄 **첫 단어 바로 왼쪽**으로 날아가며 점만큼 작아진다
  *   (마지막 줄은 오른끝 맞춤이라 왼쪽이 비어 있다 — 2026-09-24 사용자가 짚어 준 자리. 처음엔 줄 끝 마침표였는데 격자선에 붙어 밖으로 나갔다).
@@ -20,11 +23,12 @@ import { $ } from './utils.js';
 
 const DW = 1920, FOV = 20, BACK = 600, MARGIN = 1.4;
 const GROW = [0.85, 1];                     // 퇴장 진행도 중 이 구간에서 0 → 제 크기로 커짐
-const FREE_R = 1250;                        // 떠다니는 범위 오른끝(무대 x) — SPOILER 단(1273)과 겹선 앞
 const stage = $('#s1stage'), grid = $('#s1grid'), bodyClip = $('#s1bodyclip');
 
 let st = { exit: 0, box: 0, gone: false };  // stage1.js 가 매번 알려줌: 퇴장 진행도(0~1) · 박스 진행도(등장 0~1 + 사라짐 0~1) · ABOUT ME 중인지
 export function setOrb(exit, box, gone) { st.exit = exit; st.box = box; st.gone = gone; }
+let hook = () => {};                        // 매 프레임 구슬 자리를 받아 갈 곳(stage1.js bendBody) — 무대 좌표 { x, y, d }, 떠다니지 않을 땐 null
+export function onOrb(fn) { hook = fn; }
 
 let K = {}, still = false, side = 0;
 let renderer, scene, camera, cvs, bg, bgx, tex, back, mesh, tint;
@@ -63,10 +67,33 @@ function resize() {
   tint.uTint.value.set(0xffffff).lerp(new THREE.Color(K.main), K.tint);
 }
 
-/* 떠다니는 범위(무대 좌표, 구슬 가운데가 움직일 수 있는 네모) */
+/* 떠다니는 범위(무대 좌표, 구슬 가운데가 움직일 수 있는 네모) — 격자 안쪽 전체 */
 function freeBox(D) {
-  const H = stageH(), sy = (H - 120) / 960;
-  return { x0: 60 + D / 2, x1: FREE_R - D / 2, y0: 60 + 237 * sy + D / 2, y1: H - 60 - D / 2 };
+  const H = stageH();
+  return { x0: 60 + D / 2, x1: 1860 - D / 2, y0: 60 + D / 2, y1: H - 60 - D / 2 };
+}
+/* 피해 가는 네모 둘(무대 좌표) — 왼쪽 위 WORK 글자(W · O·R·K, 첫 가로선 237 위) · 오른쪽 아래 노트북 */
+function avoid() {
+  const H = stageH(), sy = (H - 120) / 960, out = [];
+  const ork = document.querySelectorAll('#s1work .ork'), k = ork[ork.length - 1];
+  const wr = k && k.style.left ? parseFloat(k.style.left) + parseFloat(k.style.width) : 1040;
+  out.push({ x0: 60, y0: 60, x1: wr + 20, y1: 60 + 237 * sy });
+  const lap = $('#s1laptop');
+  if (lap.offsetWidth) out.push({ x0: lap.offsetLeft, y0: lap.offsetTop, x1: lap.offsetLeft + lap.offsetWidth, y1: lap.offsetTop + lap.offsetHeight });
+  return out;
+}
+function bounceOff(R, r) {                                  // 구슬(가운데 O, 반지름 r)이 네모 R 에 파고들었으면 밖으로 밀어내고 그 면에서 튕김
+  let px = clamp(O.x, R.x0, R.x1), py = clamp(O.y, R.y0, R.y1), nx = O.x - px, ny = O.y - py;
+  const dist = Math.hypot(nx, ny);
+  if (dist >= r) return;
+  if (dist < 1e-6) {                                        // 가운데가 네모 안 — 가장 가까운 변으로 내보냄
+    const m = Math.min(O.x - R.x0, R.x1 - O.x, O.y - R.y0, R.y1 - O.y);
+    if (m === O.x - R.x0) { nx = -1; ny = 0; px = R.x0; } else if (m === R.x1 - O.x) { nx = 1; ny = 0; px = R.x1; }
+    else if (m === O.y - R.y0) { nx = 0; ny = -1; py = R.y0; } else { nx = 0; ny = 1; py = R.y1; }
+  } else { nx /= dist; ny /= dist; }
+  O.x = px + nx * r; O.y = py + ny * r;
+  const vn = O.vx * nx + O.vy * ny;
+  if (vn < 0) { O.vx -= 2 * vn * nx; O.vy -= 2 * vn * ny; }
 }
 
 /* SPOILER 글의 진짜 마지막 줄 첫 단어(화면 좌표 사각형). 글이 통째로 숨었으면(박스를 끝까지 키워 글상자 폭 0) null */
@@ -109,13 +136,15 @@ function frame(now) {
   if (!grow || st.gone || c >= 1) {                         // 안 보일 때 — 다음에 나오면 가운데서 다시
     if (cvs.style.visibility !== 'hidden') cvs.style.visibility = 'hidden';
     if (!grow) O.placed = false;
-    setOver(false);
+    setOver(false); hook(null);
     return;
   }
   const s = innerWidth / DW, sr = stage.getBoundingClientRect();
   const D = bigD(), B = freeBox(D);
-  if (!O.placed) {                                          // 처음 나올 때 — 빈 공간 가운데, 아무 방향으로 천천히
+  const AV = avoid();
+  if (!O.placed) {                                          // 처음 나올 때 — 격자 가운데, 아무 방향으로 천천히
     O.x = (B.x0 + B.x1) / 2; O.y = (B.y0 + B.y1) / 2;
+    for (const R of AV) bounceOff(R, D / 2);
     const ang = Math.random() * Math.PI * 2;
     O.vx = Math.cos(ang) * K.drift; O.vy = Math.sin(ang) * K.drift; O.placed = true;
   }
@@ -125,6 +154,7 @@ function frame(now) {
     O.x += O.vx * dt; O.y += O.vy * dt;
     if (O.x < B.x0) { O.x = B.x0; O.vx = Math.abs(O.vx); } else if (O.x > B.x1) { O.x = B.x1; O.vx = -Math.abs(O.vx); }
     if (O.y < B.y0) { O.y = B.y0; O.vy = Math.abs(O.vy); } else if (O.y > B.y1) { O.y = B.y1; O.vy = -Math.abs(O.vy); }
+    for (const R of AV) bounceOff(R, D / 2);                 // WORK 글자 · 노트북에서 튕김
     O.spin += dt * (0.25 + Math.hypot(O.vx, O.vy) / D * 0.8); // 굴러가는 만큼 돎
   }
   let cx = O.x, cy = O.y, d = D * grow;                    // 무대 좌표
@@ -139,6 +169,7 @@ function frame(now) {
   } else held = null;
   // 화면 좌표로
   const px = sr.left + cx * s, py = sr.top + cy * s, pd = d * s;
+  hook(a > 0 || grow < 1 ? null : { x: cx, y: cy, d });   // 다 커져 떠다니는 동안만 SPOILER 글을 누름 — 박스가 나오기 시작하면 놓아줌
   if (pd < 0.5) { cvs.style.visibility = 'hidden'; setOver(false); return; }
   cvs.style.visibility = '';
   const dpr = renderer.getPixelRatio();

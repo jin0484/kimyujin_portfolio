@@ -22,7 +22,7 @@ import { $, bezier, tempo } from '../utils.js';
 import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, unclearBox, boxCleared, morphGrid, unmorphGrid, gridMorphed, boxProgress, lineProgress } from './box.js';
 import { syncGlass, reserveGlass } from '../glass.js';
 import { syncBits } from '../glassBits.js';
-import { setOrb } from '../glassOrb.js';
+import { setOrb, onOrb } from '../glassOrb.js';
 import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, aboutPhase, openCv, closeCv, cvShown, aboutOut, exitAbout, unexitAbout, aboutOutProgress } from './about.js';
 import { initSlogan, sloganSizing, showSlogan, hideSlogan, sloganShown, sloganPhase, sloganM, sloganProgress } from './slogan.js';
 
@@ -204,9 +204,10 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
     el.append(...units.map((u) => { const e = document.createElement('span'); e.textContent = u; return e; }));
     const els = [...el.children];
     for (const e of els) e.style.display = 'none';
-    return { el, els, shown: 0, key: '' };
+    return { el, els, shown: 0, key: '', bx: new Float64Array(units.length), by: new Float64Array(units.length), bent: [] };   // bx·by: 조판한 자리(bend 가 눌렀다 되돌릴 기준)
   };
   const pair = [mk(), mk()];
+  const put = (P, i, x, y) => { P.bx[i] = x; P.by[i] = y; P.els[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y + 'px)'; };
 
   const cache = new Map();
   function linesFor(width) {                                  // 폭(정수) → [{ i0, n }] 줄마다 시작 단위와 개수
@@ -251,13 +252,13 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
       let sum = 0; for (let k = 0; k < m; k++) sum += uw[i0 + k];
       const extra = m > 1 ? Math.max(0, boxW - sum - gap * (m - 1)) / (m - 1) : 0;
       let x = 0; const y = li * LH;
-      for (let k = 0; k < n; k++, i++) { P.els[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y + 'px)'; x += uw[i] + gap + extra; }
+      for (let k = 0; k < n; k++, i++) { put(P, i, x, y); x += uw[i] + gap + extra; }
     }
     if (li < S.length && i < nVis) {                                    // 마지막 줄 — 늘리지 않고 통째로 좌/우
       const { i0 } = S[li], n = Math.min(nVis, i0 + S[li].n) - i0, m = inked(i0, n);
       let sum = gap * Math.max(0, m - 1); for (let k = 0; k < m; k++) sum += uw[i0 + k];
       let x = Math.max(0, boxW - sum) * lastAlign; const y = li * LH;
-      for (let k = 0; k < n; k++, i++) { P.els[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y + 'px)'; x += uw[i] + gap; }
+      for (let k = 0; k < n; k++, i++) { put(P, i, x, y); x += uw[i] + gap; }
     }
     for (let k = P.shown; k < nVis; k++) P.els[k].style.display = '';    // 보이는 개수가 바뀐 만큼만 토글
     for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
@@ -291,7 +292,7 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
       let sum = 0; for (let k = 0; k < n; k++) sum += uw[i0 + k];
       let extra = n > 1 && si < F.segs.length - 1 ? Math.max(0, w - sum - gap * (n - 1)) / (n - 1) : 0;
       if (extra > 18) extra = 0;                              // 좁은 구간에 단어 두세 개면 사이가 휑하게 벌어짐 — 그땐 왼끝 정렬(글자 외곽에 붙음)
-      for (let k = 0, xx = x; k < n && i < nVis; k++, i++) { P.els[i].style.transform = 'translate(' + xx.toFixed(1) + 'px,' + y + 'px)'; xx += uw[i] + gap + extra; }
+      for (let k = 0, xx = x; k < n && i < nVis; k++, i++) { put(P, i, xx, y); xx += uw[i] + gap + extra; }
     });
     for (let k = P.shown; k < nVis; k++) P.els[k].style.display = '';
     for (let k = nVis; k < P.shown; k++) P.els[k].style.display = 'none';
@@ -315,14 +316,36 @@ function typeset(text, mode) {   // mode: 'word' = 띄어쓰기에서만 줄바�
       pair[1].el.style.pointerEvents = +pair[1].el.style.opacity < 0.5 ? 'none' : '';
     } else pair[1].el.style.display = 'none';
   }
-  return { els: [pair[0].el, pair[1].el], count: units.length, fitCount, show, flow, showFlow };
+  // 유리 구슬이 누르는 모습 (2026-09-26) — 원 o(cx, cy, r: 이 조판 창 기준 px)이 걸친 줄만, 단어를 원 양옆으로 몰아 넣고 가로로 눌러 찌그러뜨린다.
+  // 줄 한쪽 끝(0 또는 W)에서 원 가운데까지를 t(0~1)로 두고 1 − (1 − t)^k 로 휘어 원 가장자리까지로 접어 넣는다 — k 는 줄 끝에서 기울기가 1 이 되게.
+  // 그래서 원에서 먼 단어는 거의 그대로고, 가까울수록 납작해지며 원 가장자리에 닿는 단어는 폭이 0 에 가까워진다. o 가 null 이면 조판한 자리로 되돌림
+  function bend(W, o) {
+    const P = pair[0];
+    for (const i of P.bent) put(P, i, P.bx[i], P.by[i]);
+    P.bent.length = 0;
+    if (!o || !(W > 0)) return;
+    const fold = (x, A, A2) => (A2 < 1 ? 0 : A2 * (1 - Math.pow(1 - Math.min(1, Math.max(0, x / A)), A / A2)));   // 끝에서 x 떨어진 점 → 접힌 뒤 거리
+    const A = o.cx, B = W - o.cx;
+    for (let i = 0; i < P.shown; i++) {
+      const dy = P.by[i] + LH / 2 - o.cy;
+      if (Math.abs(dy) >= o.r) continue;
+      const c = Math.sqrt(o.r * o.r - dy * dy), x0 = P.bx[i], x1 = x0 + uw[i];
+      let a, b;
+      if ((x0 + x1) / 2 < o.cx) { const A2 = Math.max(0, A - c); a = fold(x0, A, A2); b = fold(x1, A, A2); }   // 원 왼쪽 — 왼끝(0) 쪽으로
+      else { const B2 = Math.max(0, B - c); a = W - fold(W - x0, B, B2); b = W - fold(W - x1, B, B2); }         // 원 오른쪽 — 오른끝(W) 쪽으로
+      const k = uw[i] > 0 ? Math.max(0, b - a) / uw[i] : 1;
+      P.els[i].style.transform = 'translate(' + a.toFixed(1) + 'px,' + P.by[i] + 'px) scaleX(' + k.toFixed(3) + ')';
+      P.bent.push(i);
+    }
+  }
+  return { els: [pair[0].el, pair[1].el], count: units.length, fitCount, show, flow, showFlow, bend };
 }
 
 let tsA = null, tsB = null, nAll = 0, nSeq = 0;
 function buildBody() {                                        // 문단 → 단위 span 두 벌 (처음 한 번)
   if (tsA) return;
   tsA = typeset(DUMMY.repeat(6), 'word');                     // 여백 본문 — 띄어쓰기 단위
-  tsB = typeset(DUMMY2, 'word');                              // 바뀐 글 — 단어 단위(단어마다 span 이라 호버하면 단어째 초록 배경). 띄어쓰기 없는 글로 바꾸면 'char'
+  tsB = typeset(DUMMY2, 'word');                              // 바뀐 글 — 단어 단위(단어마다 span 이라 유리 구슬이 지나가면 단어째 눌림 — bendBody). 띄어쓰기 없는 글로 바꾸면 'char'
   tsB.els.forEach((el) => el.classList.add('hv'));
   body.textContent = '';
   body.append(...tsA.els, ...tsB.els);
@@ -464,6 +487,14 @@ function renderBody(p) {
   tsB.show(w, lastAlign, tsB.count, sA, sB, ft, mix <= 0 ? 0 : mix < 1 ? Math.sqrt(mix) : 1);
 }
 // 네모박스(box.js)가 본문을 밀 때 — 퇴장 끝 상태(바뀐 글, 마지막 줄 오른끝)를 왼끝·높이만 바꿔 다시 조판. 오른끝은 격자 오른선 1860
+// 화면2 유리 구슬(glassOrb.js)이 매 프레임 알려주는 자리(무대 좌표 가운데 x·y · 지름 d, 안 보이면 null) — 퇴장이 다 끝나 멈춰 있고
+// 네모박스가 나오기 전에만 SPOILER 글을 누른다. 구슬과 글 사이는 BEND_GAP 만큼 띄움
+const BEND_GAP = 12;
+function bendBody(o) {
+  if (!tsB) return;
+  const on = o && pos >= N && dir === 0 && !boxShown();
+  tsB.bend(parseFloat(body.style.width) || 0, on ? { cx: o.x - bodyClip.offsetLeft, cy: o.y - bodyClip.offsetTop, r: o.d / 2 + BEND_GAP } : null);
+}
 function squeezeBody(left, h) {
   if (!tsB) return;
   const w = Math.max(0, 1860 - left);
@@ -777,6 +808,7 @@ export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
   initBox(squeezeBody);
   initAbout();                                                // ABOUT ME 클릭 → 이력 (about.js)
+  onOrb(bendBody);                                            // 화면2 유리 구슬이 지나가면 SPOILER 글이 눌림 (glassOrb.js)
   initSlogan(() => renderWork(eased(pos)));                   // 슬로건 — 도는 동안 M 도 같이 그림 (slogan.js)
   reserveGlass(swapPeakU(0, 1, swapDampCss()));               // 유리 링 캔버스를 YUJIN 크게 + 튕김 크기로 미리 — 첫 호버에서 새로 잡느라 멈칫하지 않게
   sizing();
