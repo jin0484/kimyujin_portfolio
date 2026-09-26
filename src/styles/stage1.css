@@ -55,6 +55,16 @@
 #s1about, #s1stage img#s1me { position: absolute; display: none; left: 60px; top: 60px; will-change: transform }   /* 위 #s1stage img 의 display: block 을 이기려고 ME 는 id 를 겹쳐 씀 */
 #s1about.on, #s1stage img#s1me.on { display: block }
 #s1stage img#s1me { clip-path: inset(0 0 0 62%) }   /* ME 의 M 은 WORK 의 W 가 뒤집혀 날아와 채운다(stage1.js renderWork) — 그림에선 E 만(me.svg: M 0~205 · E 238~350) */
+/* 슬로건 — 맨 마지막 휠, 오른쪽 아래 (slogan.js). 자리·글자 크기는 JS 가 격자 높이에 맞춰.
+   --s1sloganCap: 대문자 높이(1920 기준 px, 초록 M 그림도 이 높이) · --s1sloganRun: M 이 접혀 달려가 펴지는 시간 · --s1sloganType: 한 글자 치는 간격 */
+#s1stage { --s1sloganCap: 64; --s1sloganRun: 1.4s; --s1sloganType: .06s }
+#s1slogan {
+  position: absolute; left: 0; top: 0; margin: 0; display: none; pointer-events: none;
+  font-family: 'Chillax', var(--grot); font-weight: 500; line-height: 1; color: #0C0C0C; white-space: pre;
+}
+#s1slogan.on { display: block }
+#s1slogan i { display: inline-block; width: .055em; margin-left: .04em; background: #0C0C0C; vertical-align: baseline; visibility: hidden }   /* 커서 — 높이는 대문자 높이(slogan.js), 치는 동안만 */
+#s1slogan i.on { visibility: visible }
 #s1about img { left: 0; top: 0; width: 100%; height: 100% }   /* 다섯 장이 완전히 겹쳐 있고 clip-path 로 한 글자씩만 보인다 (about.js BAND) */
 /* 복권 긁기 (about.js) — 보이는 글자는 띠마다 얹은 캔버스(긁는 막)이고, 원래 글자 그림은 투명하게 둔 채 키보드 포커스·Enter 용으로만 남김 */
 #s1about img { opacity: 0 }
@@ -145,7 +155,7 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
 
 /* SCROLL DOWN — 격자 아래 여백(3.125vw = 1920 기준 60px) 한가운데. 창 안에서 글자가 아래에서 올라오고, 그 뒤로 둥둥 떠 있는다.
    무대가 아니라 화면(#s1) 기준이라 여백 안에 그대로 놓인다 — 무대였으면 clip-path 에 잘려 안 보인다.
-   스크롤을 내리기 시작하면 글자가 납작하게 눌리면서 그 자리에 막대가 서고, 막대는 휠 진행(퇴장 → 박스 → 소멸 → 격자·ABOUT ME 네 단계)만큼 채워진다.
+   스크롤을 내리기 시작하면 글자가 납작하게 눌리면서 그 자리에 막대가 서고, 막대는 휠 진행(퇴장 → 박스 → 소멸 → 격자·ABOUT ME → ABOUT·노트북 퇴장 → 슬로건 여섯 단계)만큼 채워진다.
    --s1scrollWait: 페이지가 뜨고 올라오기 시작할 때까지 · --s1scrollIn: 올라오는 시간 · --s1scrollBob: 한 번 떠올랐다 가라앉는 시간
    --s1scrollSquash: 글자가 눌려 막대가 되는 시간. 눌리는 게 보여야 하므로 **페이드를 쓰지 않는다** —
    투명도로 지우면 다 눌리기 전에 글자가 사라져서 과정이 안 보인다.
@@ -178,7 +188,8 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
   background: rgba(35, 35, 35, .18); transform: translateX(-50%) scaleY(0);
   transition: transform calc(var(--s1scrollSquash) * .45) cubic-bezier(.2, .7, .3, 1), width .35s cubic-bezier(.4, 0, .3, 1);
 }
-#s1scroll b::after { content: ''; position: absolute; left: 50%; top: 50%; width: 1px; height: .42vw; margin: -.21vw 0 0 -.5px; background: rgba(35, 35, 35, .45) }   /* 가운데 눈금 = WORK */
+#s1scroll b::before, #s1scroll b::after { content: ''; position: absolute; left: 33.333%; top: 50%; width: 1px; height: .42vw; margin: -.21vw 0 0 -.5px; background: rgba(35, 35, 35, .45) }   /* 눈금 — ⅓ = WORK · ⅔ = ABOUT ME */
+#s1scroll b::after { left: 66.667% }
 #s1scroll u { display: block; width: 0; height: 100%; background: #232323; text-decoration: none }   /* 휠 진행만큼 채워짐 (stage1.js paintScroll) */
 #s1scroll.bar i { animation: s1squash var(--s1scrollSquash) cubic-bezier(.4, 0, .3, 1) forwards }
 #s1scroll.unbar i { animation: s1squash var(--s1scrollSquash) cubic-bezier(.4, 0, .3, 1) reverse }   /* 첫 화면으로 되돌아올 때 — 막대에서 글자로 도로 펴짐 */
@@ -193,7 +204,7 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
               width .5s cubic-bezier(.65, 0, .35, 1) calc(var(--s1scrollSquash) * .9);
 }
 
-/* 섹션 이동 — 넓어진 막대 위, 막대 진행도 자리(0 · 50% · 100%)에 이름. 누르면 그 섹션까지 휠을 대신 굴린다 (stage1.js jumpTo).
+/* 섹션 이동 — 넓어진 막대 위, 막대 진행도 자리(0 · ⅓ · ⅔ · 끝)에 이름 — KIM YUJIN · WORK · ABOUT ME · END. 누르면 그 섹션까지 휠을 대신 굴린다 (stage1.js jumpTo).
    막대가 다 넓어진 뒤 한 번에 뜨고(페이드 없음 — SCROLL DOWN 과 같은 결), 되돌아올 땐 바로 사라진다. 지금 있는 섹션은 진하게(.on) */
 #s1nav {
   position: absolute; left: 50%; top: 0; width: var(--s1navW); height: calc(50% - .36vw); transform: translateX(-50%);
@@ -206,8 +217,9 @@ html.lapzoom #s1glass, html.lapzoom #s1scroll { opacity: 0; transition: opacity 
   color: rgba(35, 35, 35, .4); transition: color .2s;
 }
 #s1nav button:nth-child(1) { left: 0 }
-#s1nav button:nth-child(2) { left: 50%; transform: translateX(-50%) }
-#s1nav button:nth-child(3) { right: 0 }
+#s1nav button:nth-child(2) { left: 33.333%; transform: translateX(-50%) }
+#s1nav button:nth-child(3) { left: 66.667%; transform: translateX(-50%) }
+#s1nav button:nth-child(4) { right: 0 }
 #s1nav button:hover, #s1nav button.on { color: #232323 }
 #s1nav button:focus-visible { outline: 1px solid #232323; outline-offset: 2px }
 

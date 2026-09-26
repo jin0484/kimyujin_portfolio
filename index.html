@@ -46,6 +46,8 @@
       <img src="/s1/about.svg" alt="T" width="159" height="960" role="button" tabindex="0" aria-label="T — 사진 보기">
     </div>
     <img id="s1me" src="/s1/me.svg" alt="ME" width="350" height="158">
+    <!-- 슬로건 — 맨 마지막 휠. M 은 ME 의 M 이 달려와 펴진 것(stage1.js renderWork), 여기엔 나머지 글자만 타이핑됨 (slogan.js) -->
+    <p id="s1slogan" aria-label="Meaning in every Margin."><span aria-hidden="true"></span><i aria-hidden="true"></i></p>
     <span id="s1scratch" aria-hidden="true">SCRATCH<svg viewBox="0 0 21.0607 21.0607" width="21.0607" height="21.0607"><path d="M1.06066 20L19.5607 1.5M1.06066 1.5H21.0607M19.5607 0V20"/></svg></span>   <!-- 긁기 안내 — ABOUT 오른쪽 위, 화살표는 DRAG ↗ 를 뒤집은 ↙ (about.js scratchHint) -->
     <div id="s1cv"></div>   <!-- 클릭하면 글자 자리에 들어오는 이력 (about.js buildCv, 내용은 data.js CV) -->
     <div id="s1box" aria-hidden="true">
@@ -91,7 +93,7 @@
        한 요소에 여러 개를 걸면 transform 이 서로 덮어쓴다 -->
   <div id="s1scroll"><span aria-hidden="true"><i>SCROLL DOWN</i><b><u></u></b></span>
     <!-- 섹션 이동 — 막대가 서고 옆으로 넓어진 뒤 위에 뜬다. 누르면 그 섹션까지 휠을 대신 굴림 (stage1.js jumpTo). 자리 = 막대 진행도(0 · 50% · 100%) -->
-    <nav id="s1nav" aria-label="섹션 이동"><button type="button" data-step="0">KIM YUJIN</button><button type="button" data-step="2">WORK</button><button type="button" data-step="4">ABOUT ME</button></nav>
+    <nav id="s1nav" aria-label="섹션 이동"><button type="button" data-step="0">KIM YUJIN</button><button type="button" data-step="2">WORK</button><button type="button" data-step="4">ABOUT ME</button><button type="button" data-step="6">END</button></nav>
   </div>
 </section>
 

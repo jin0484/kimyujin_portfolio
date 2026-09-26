@@ -19,13 +19,17 @@
  *    그래서 ABOUT 은 그림 한 장이 아니라 **같은 SVG 5장을 글자별 띠(BAND)로 잘라** 겹쳐 둔 것이다 —
  *    회전할 땐 5장이 똑같이 도니까 한 장처럼 보이고, clip-path 가 눌리는 자리까지 잘라줘서 자기 띠에서만 눌린다.
  *
+ * ③ 그다음 휠 — 퇴장 (2026-09-26 사용자 요청). 이력이 열려 있으면 먼저 닫히고, 그다음 휠에 ABOUT·E 는 들어온 회전을 거꾸로 돌아
+ *    격자 밖으로 나가고 노트북은 오른쪽 아래로 작아지며 사라진다(네모박스에 밀릴 때처럼). 초록 M(stage1.js renderWork)만 남아
+ *    그다음 휠에 슬로건의 M 이 되러 달려간다(slogan.js). 퇴장은 들어오는 시간축(am)과 따로 굴러서 M 은 제자리에 있다.
+ *
  * 세로가 짧은 화면에서는 격자가 눌리는 만큼(sy) 글자도 이력도 통째로 같은 비율로 작아진다 — 글자가 눌리지 않고,
  * ABOUT 은 언제나 격자 위선에서 아래선까지 꽉 찬다. 가로 자리도 같은 비율이라 ABOUT·ME 사이 간격도 그대로.
  */
 import { $, bezier, tempo } from '../utils.js';
 import { CV } from '../data.js';
 
-const stage = $('#s1stage'), about = $('#s1about'), me = $('#s1me'), cv = $('#s1cv');
+const stage = $('#s1stage'), about = $('#s1about'), me = $('#s1me'), cv = $('#s1cv'), laptop = $('#s1laptop');
 const glyphs = [...about.querySelectorAll('img')];
 const hintEl = $('#s1scratch');                              // SCRATCH ↙ 안내 — ABOUT 오른쪽 위 (아래 scratchHint)
 const GH = 960;
@@ -48,6 +52,7 @@ const CV_AT = [
 
 let sy = 1, raf = 0, lastT = 0, ease = null, on = false;
 let am = 0, amTo = 0, hold = 800, rotMs = 1200, u = 0;       // am: 기다림 + 회전을 합친 시간축(ms). u(0~1) 는 여기서 나온다
+let xm = 0, xTo = 0;                                         // 퇴장 시간축(ms, 0 ~ rotMs) — ABOUT·E 가 돌아 나가고 노트북이 작아짐
 let cvMs = [0, 0, 0, 0, 0], cvTo = [0, 0, 0, 0, 0];          // 자리마다 따로 구르는 진행(ms) — 되감기도 같은 시간축을 거꾸로
 let scr = [], pre = [0, 0, 0, 0, 0];                          // 복권 긁기 — 글자마다 막(캔버스)·긁힌 비율 · 긁어서 미리 뜬 이력 단위 수
 let erase = 600, delay = 350, popStep = 45, barMs = 350;
@@ -132,7 +137,9 @@ function measureCv() {
 
 function render() {
   u = clamp((am - hold) / rotMs, 0, 1);
-  const a = 1 - (ease ? ease(u) : u);                        // 1 = 누운 채 바깥 · 0 = 제자리
+  const ez = ease || ((v) => v), out = ez(clamp(xm / rotMs, 0, 1));
+  const a = Math.max(1 - ez(u), out);                        // 1 = 누운 채 바깥 · 0 = 제자리. 퇴장은 들어온 길을 거꾸로
+  laptop.style.scale = out > 0 ? String(1 - out) : '';       // 노트북 — transform 은 box.js·laptopZoom.js 가 쓰므로 따로 도는 scale 로 (오른쪽 아래 기준)
   for (const [e, x, y, w, h, px, py, dir] of ITEMS) {
     e.style.left = 60 + x * sy + 'px';
     e.style.top = 60 + y * sy + 'px';
@@ -188,6 +195,10 @@ function tick(now) {
     am = amTo > am ? Math.min(amTo, am + dt) : Math.max(amTo, am - dt);
     busy = am !== amTo;
     if (am === 0 && amTo === 0) { on = false; about.classList.remove('on'); me.classList.remove('on'); }
+  }
+  if (xm !== xTo) {
+    xm = xTo > xm ? Math.min(xTo, xm + dt) : Math.max(xTo, xm - dt);
+    busy = busy || xm !== xTo;
   }
   for (let i = 0; i < cvMs.length; i++) {
     if (cvMs[i] === cvTo[i]) continue;
@@ -253,7 +264,7 @@ function measure(i) {                                        // 긁힌 비율 �
 }
 function scratchHint() {                                     // SCRATCH ↙ — ABOUT 이 다 들어와 있고 아무 이력도 안 열렸을 때만
   if (!hintEl) return;
-  const show = on && u >= 1 && !cvAny();
+  const show = on && u >= 1 && xm === 0 && xTo === 0 && !cvAny();
   hintEl.classList.toggle('on', show);
   if (show) { hintEl.style.left = 60 + (159 + 24) * sy + 'px'; hintEl.style.top = 60 + 20 * sy + 'px'; }
 }
@@ -270,16 +281,31 @@ export function showAbout() {
   return amTo - am;
 }
 export function hideAbout() {
-  if (!on || amTo === 0 || cvAny()) return 0;                // 이력이 먼저 닫혀야 들어간다
+  if (!on || amTo === 0 || cvAny() || xTo > 0) return 0;     // 이력이 먼저 닫히고, 퇴장했으면 먼저 돌아와야 들어간다
   readVars();
   amTo = 0; kick();
   return am;
+}
+// 그다음 휠 — ABOUT·E 가 돌아 나가고 노트북이 작아짐. 초록 M 은 남는다
+export const aboutOut = () => xTo > 0;
+export const aboutOutProgress = () => clamp(xm / Math.max(1, rotMs), 0, 1);   // 아래 여백 막대(stage1.js paintScroll)가 쓰는 진행도
+export function exitAbout() {
+  if (!on || u < 1 || cvAny() || xTo > 0) return 0;
+  readVars();
+  xTo = rotMs; kick();
+  return xTo - xm;
+}
+export function unexitAbout() {
+  if (xTo === 0) return 0;
+  readVars();
+  xTo = 0; kick();
+  return xm;
 }
 
 /* ── 클릭 — 자리 하나(i)씩. 휠 되감기에서는 인자 없이 불러 열린 걸 전부 닫는다 ── */
 export const cvShown = () => cvAny();
 export function openCv(i) {
-  if (!on || u < 1 || cvTo[i] > 0) return 0;
+  if (!on || u < 1 || xTo > 0 || cvTo[i] > 0) return 0;
   readVars();
   cv.classList.add('on');
   measureCv();                                             // 보이게 된 뒤에 재야 한다 (폰트도 다 온 뒤)
@@ -318,7 +344,7 @@ export function initAbout() {
     about.append(c);
     const s = { cv: c, g: c.getContext('2d', { willReadFrequently: true }), ink0: 1, f: 0, mt: 0, drag: null };
     c.addEventListener('pointerdown', (e) => {
-      if (!on || u < 1 || cvTo[i] > 0 || e.button !== 0) return;
+      if (!on || u < 1 || xTo > 0 || cvTo[i] > 0 || e.button !== 0) return;
       e.preventDefault();
       c.setPointerCapture(e.pointerId);
       s.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };

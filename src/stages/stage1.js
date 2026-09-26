@@ -23,15 +23,17 @@ import { initBox, boxSizing, boxRefresh, showBox, hideBox, boxShown, clearBox, u
 import { syncGlass, reserveGlass } from '../glass.js';
 import { syncBits } from '../glassBits.js';
 import { setOrb } from '../glassOrb.js';
-import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, aboutPhase, openCv, closeCv, cvShown } from './about.js';
+import { initAbout, aboutSizing, showAbout, hideAbout, aboutShown, aboutPhase, openCv, closeCv, cvShown, aboutOut, exitAbout, unexitAbout, aboutOutProgress } from './about.js';
+import { initSlogan, sloganSizing, showSlogan, hideSlogan, sloganShown, sloganPhase, sloganM, sloganProgress } from './slogan.js';
 
 /* ── 아래 여백의 SCROLL DOWN (index.html #s1scroll) ──
  *  첫 화면에선 올라와 둥둥 떠 있다가, 스크롤을 내리기 시작하면 납작하게 눌려 막대가 되고
- *  그 막대가 휠 진행만큼 채워진다. 진행도는 네 단계를 이어붙인 것:
- *    퇴장(pos/N) + 박스 등장·사라짐(box.js boxProgress) + 격자 가로줄·ABOUT ME(box.js lineProgress)
+ *  그 막대가 휠 진행만큼 채워진다. 진행도는 여섯 단계를 이어붙인 것:
+ *    퇴장(pos/N) + 박스 등장·사라짐(box.js boxProgress) + 격자 가로줄·ABOUT ME(box.js lineProgress) + ABOUT·노트북 퇴장(about.js aboutOutProgress) + 슬로건(slogan.js sloganProgress)
+ *  그래서 섹션 이름 자리(0 · ⅓ · ⅔ · 끝)에 딱 닿는다 — WORK 는 2단계, ABOUT ME 는 4단계, END 는 6단계 끝.
  *  되감아 첫 화면으로 돌아오면 막대가 다시 글자로 펴진다. */
 const scrollEl = $('#s1scroll'), scrollFill = scrollEl.querySelector('u');
-const SCROLL_STAGES = 4;
+const SCROLL_STAGES = 6;
 const scrollHint = (on) => scrollEl.classList.toggle('on', on);
 let hintUpAt = Infinity, barT = 0;                          // 글자가 다 올라오는 시각 — 그 전에 굴리면 눌리는 걸 못 보므로 기다렸다 시작
 function scrollBar(on) {
@@ -49,11 +51,11 @@ function scrollBar(on) {
   if (left > 0) barT = setTimeout(() => scrollEl.classList.add('bar'), left);
   else scrollEl.classList.add('bar');
 }
-const navBtns = [...document.querySelectorAll('#s1nav button')];   // 막대 위 섹션 이름 — KIM YUJIN · WORK · ABOUT ME (아래 jump)
+const navBtns = [...document.querySelectorAll('#s1nav button')];   // 막대 위 섹션 이름 — KIM YUJIN · WORK · ABOUT ME · END (아래 jump)
 function paintScroll() {
-  const p = (pos / N + boxProgress() + lineProgress()) / SCROLL_STAGES;
+  const p = (pos / N + boxProgress() + lineProgress() + aboutOutProgress() + sloganProgress()) / SCROLL_STAGES;
   scrollFill.style.width = Math.min(100, Math.max(0, p * 100)) + '%';
-  const st = jumpTo >= 0 ? jumpTo : stepNow(), sec = st >= 4 ? 2 : st >= 2 ? 1 : 0;   // 가는 중이면 가는 곳을 미리 진하게
+  const st = jumpTo >= 0 ? jumpTo : stepNow(), sec = st >= 6 ? 3 : st >= 4 ? 2 : st >= 2 ? 1 : 0;   // 가는 중이면 가는 곳을 미리 진하게
   navBtns.forEach((b, i) => b.classList.toggle('on', i === sec));
   if (aboutShown() || gridMorphed() || work.classList.contains('on') !== pos > 0) renderWork(eased(pos));   // ABOUT ME 가 들어오고 나가는 동안 W ↔ ME 의 M
   setOrb(pos / N, boxProgress(), aboutShown() || gridMorphed());   // 화면2 유리 구슬에 진행 상태 (glassOrb.js)
@@ -74,6 +76,7 @@ export function sizing() {
   stage.style.transform = 'scale(' + s + ')';
   boxSizing(window.innerHeight / s, s);                       // 격자 선 · 네모박스 (box.js)
   aboutSizing(window.innerHeight / s);                        // ABOUT ME (about.js)
+  sloganSizing(window.innerHeight / s);                       // 슬로건 (slogan.js)
 }
 
 export function refresh() {                                   // 리사이즈 · 폰트 로드 후 (main.js)
@@ -504,6 +507,9 @@ function render(q) {                                        // q: --s1stepEase �
  *    ③ M_TRAVEL  첫 가로선을 따라 오른쪽 → 두 번째 세로 겹선(RAIL_X)을 타고 아래로 → 바닥선을 따라 왼쪽, ME 의 M 자리에서 멈춤
  *    ④ M_UNFOLD  바닥선에서 M 이 펴져 ME 의 M 이 됨. 달리는 길은 왼쪽 ABOUT 기둥(폭 159)에 닿지 않는다
  *    ME 그림(me.svg)의 M 은 KIM 의 M 을 가로 0.4247 · 세로 0.4178 배 한 것이라 크기만 맞추면 이음매가 없다 — ME 는 E 만 보이게 잘라 둠(stage1.css).
+ *  화면3 → 슬로건 (ABOUT·E·노트북이 나간 뒤 휠 — slogan.js sloganPhase):
+ *    ① S_FOLD  ME 의 M 이 바닥선으로 접힘  ② S_TRAVEL  바닥선을 따라 오른쪽, 슬로건 M 자리에서 멈춤. 가는 동안 길이가 M 폭 → 슬로건 M 폭
+ *    ③ S_UNFOLD  M 이 펴지며 글자 기준선(g·y 꼬리만큼 바닥선 위)까지 올라섬 → 이어서 나머지 글자가 타이핑됨(slogan.js)
  *  진짜 M(#s1name 안)은 창에 잘리므로 퇴장이 시작되면 숨기고, 같은 그림(#s1work .w)이 M 의 지금 자리(호버 배치 반영)에서 이어받는다.
  *  O·R·K 는 Figma "WORK" 시안(202:29, 2026-09-26)의 필기체 벡터 그대로(public/s1/work-o·r·k.svg — Mrs Saint Delafield 를 가로로 늘려 윤곽선으로 만든 것).
  *  자리·크기는 시안에서 W 글자 상자(WORK_WBOX)를 기준으로 잰 비율을 우리 W 크기로 옮긴다 — o 가 W 오른쪽 기둥에 겹쳐 들어가고,
@@ -513,6 +519,7 @@ function render(q) {                                        // q: --s1stepEase �
  *  그 선을 stroke-dash 로 앞에서부터 늘려 가며 덮인 곳만 보이게 한다. 선 굵기는 다 그렸을 때 글자 획이 남김없이 덮이도록 맞춤 */
 const W_SQUASH = [0, 0.16], W_TRAVEL = [0.16, 0.74], W_UNFOLD = [0.74, 0.88];
 const M_ORK = [0, 0.2], M_FOLD = [0.1, 0.28], M_TRAVEL = [0.28, 0.84], M_UNFOLD = [0.84, 1];
+const S_FOLD = [0, 0.2], S_TRAVEL = [0.2, 0.8], S_UNFOLD = [0.8, 1];
 const WORK_PAD = 20, WORK_LINE = 5;                          // W 위·왼쪽 여백 · 달리는 선 굵기(무대 px)
 /* Figma 202:29 좌표 — W 글자 상자 [x, y, 폭, 높이] · o · r · k 상자 · o 앞을 지나는 W 기둥 조각 */
 const WORK_WBOX = [10.534, 19.586, 96.87, 76.138];
@@ -588,6 +595,20 @@ function renderWork(q) {
       const head = lerp(tw, railLen(pts), u);
       run = [pts, head - lerp(tw, mw, u), head];
     } else g = { x: mx, y: floor, ly: fl, w: mw, h: mh, flip: false, s: easeOpen(seg(t, M_UNFOLD)) };
+    const sp = t >= 1 ? sloganPhase() : 0;                   // 슬로건 — ME 의 M 이 바닥선을 따라 오른쪽 아래로
+    if (sp > 0) {
+      const S = sloganM(), sx = S.x, sw = S.w;
+      g = null;
+      if (sp < S_TRAVEL[0]) g = { x: mx, y: floor, ly: fl, w: mw, h: mh, flip: false, s: 1 - easeFold(seg(sp, S_FOLD)) };
+      else if (sp < S_UNFOLD[0]) {
+        const u = easeRun(seg(sp, S_TRAVEL)), pts = [[mx, fl], [sx + sw, fl]];
+        const head = lerp(mw, railLen(pts), u);
+        run = [pts, head - lerp(mw, sw, u), head];
+      } else {
+        const o = easeOpen(seg(sp, S_UNFOLD)), y = floor - S.lift * o;   // 펴지면서 기준선까지 올라섬
+        g = { x: sx, y, ly: y - e, w: sw, h: S.h, flip: false, s: o };
+      }
+    }
   }
   if (g && g.s < 0.12) { run = [[[g.x, g.ly], [g.x + g.w, g.ly]], 0, g.w]; fade = 1 - g.s / 0.12; }   // 거의 다 접혔거나 막 펴지기 시작할 때 — 선과 겹쳐 이어 보이게
   if (g && g.s > 0.001) {                                     // 글자는 서 있는 선에 바닥을 붙인 채 높이만 줄고 늘어남 (그림은 비율 고정 없이 늘어나는 SVG)
@@ -706,11 +727,13 @@ const atStart = () => pos === 0 && dir === 0;
 function play(d) {
   if (d > 0) scrollBar(true);                               // 굴리기 시작하면 글자가 눌려 막대가 됨
   if (dir === 0 && performance.now() < lockUntil) return;
-  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js).
+  if (dir === 0 && pos >= N && (d > 0 || boxShown())) {       // 퇴장이 끝난 뒤 — 2번째 휠 네모박스 등장 · 3번째 휠 박스와 초록 글 사라짐 · 4번째 휠 격자 가로줄 갈아끼우기(box.js) · 5번째 휠 ABOUT ME(about.js) · 그다음 ABOUT·노트북 퇴장 · 마지막 슬로건.
                                                              // 휠을 올리면 한 단계씩 되돌아가고, 다 되돌아간 뒤 그다음 휠에 퇴장이 되감김
     // 마지막 휠은 격자 가로줄 갈아끼우기와 ABOUT ME 를 **같이** 돌린다 — 둘을 따로 두면 선만 바뀌는 빈 구간이 생겨서
-    const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : Math.max(morphGrid(), showAbout()))
-                     : (cvShown() ? closeCv() : aboutShown() || gridMorphed() ? Math.max(hideAbout(), unmorphGrid()) : boxCleared() ? unclearBox() : hideBox());
+    // ABOUT ME 다음 — 이력이 열려 있으면 닫힘 → ABOUT·E·노트북 퇴장(about.js) → 슬로건(slogan.js). 올리면 거꾸로
+    const ms = d > 0 ? (!boxShown() ? showBox() : !boxCleared() ? clearBox() : !(aboutShown() && gridMorphed()) ? Math.max(morphGrid(), showAbout())
+                        : cvShown() ? closeCv() : !aboutOut() ? exitAbout() : showSlogan())
+                     : (sloganShown() ? hideSlogan() : aboutOut() ? unexitAbout() : cvShown() ? closeCv() : aboutShown() || gridMorphed() ? Math.max(hideAbout(), unmorphGrid()) : boxCleared() ? unclearBox() : hideBox());
     if (ms) { const t = ms / tempo.k; lockUntil = performance.now() + t + 300 / tempo.k; followBar(t); }   // 같은 휠 동작(관성)이 이어서 되감기지 않게. ms 는 평소 빠르기 기준이라 섹션 이동 중엔 나눔
     return;
   }
@@ -730,13 +753,13 @@ function play(d) {
   if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
 }
 /* ── 섹션 이동 — 스크롤 막대 위 이름(#s1nav)을 누르면 그 섹션까지 휠을 대신 한 단계씩 굴린다 ──
- *  단계: 0 첫 화면 · 1 퇴장 끝 · 2 네모박스(WORK) · 3 박스·글 사라짐 · 4 ABOUT ME. 앞 단계가 끝나 잠금(lockUntil)이 풀리면 다음 단계.
+ *  단계: 0 첫 화면 · 1 퇴장 끝 · 2 네모박스(WORK) · 3 박스·글 사라짐 · 4 ABOUT ME · 5 ABOUT·노트북 퇴장 · 6 슬로건(이름은 계속 ABOUT ME). 앞 단계가 끝나 잠금(lockUntil)이 풀리면 다음 단계.
  *  가는 동안엔 전부 JUMP_TEMPO 배로 빨리 돈다(tempo — box.js · about.js 연출과 단계 사이 잠금까지). 제일 긴 KIM YUJIN 퇴장은 거기에 JUMP_EXIT 배를 더.
  *  처음부터 ABOUT ME 까지 JUMP_TEMPO 1 이면 약 9초, 1.5 면 약 6초 (2026-09-24 "너무 느리다" → 1.5).
  *  사용자가 휠·키·터치를 쓰면 그 자리에서 멈추고 평소 빠르기로(userPlay) */
 const JUMP_TEMPO = 1.5, JUMP_EXIT = 2;
 let jumpTo = -1;
-const stepNow = () => pos < N ? 0 : !boxShown() ? 1 : !boxCleared() ? 2 : !(aboutShown() || gridMorphed()) ? 3 : 4;
+const stepNow = () => pos < N ? 0 : !boxShown() ? 1 : !boxCleared() ? 2 : !(aboutShown() || gridMorphed()) ? 3 : !aboutOut() ? 4 : !sloganShown() ? 5 : 6;
 function jumpTick() {
   if (jumpTo < 0) return;
   const cur = stepNow();
@@ -756,6 +779,7 @@ export function initStage1() {
   body.textContent = DUMMY.repeat(6);                         // 폰트 오기 전엔 문단 그대로
   initBox(squeezeBody);
   initAbout();                                                // ABOUT ME 클릭 → 이력 (about.js)
+  initSlogan(() => renderWork(eased(pos)));                   // 슬로건 — 도는 동안 M 도 같이 그림 (slogan.js)
   reserveGlass(swapPeakU(0, 1, swapDampCss()));               // 유리 링 캔버스를 YUJIN 크게 + 튕김 크기로 미리 — 첫 호버에서 새로 잡느라 멈칫하지 않게
   sizing();
   const ready = document.fonts ? document.fonts.load(FONT).then(() => document.fonts.ready) : Promise.resolve();
