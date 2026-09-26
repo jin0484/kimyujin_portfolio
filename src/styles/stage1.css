@@ -55,9 +55,9 @@
 #s1about, #s1stage img#s1me { position: absolute; display: none; left: 60px; top: 60px; will-change: transform }   /* 위 #s1stage img 의 display: block 을 이기려고 ME 는 id 를 겹쳐 씀 */
 #s1about.on, #s1stage img#s1me.on { display: block }
 #s1stage img#s1me { clip-path: inset(0 0 0 62%) }   /* ME 의 M 은 WORK 의 W 가 뒤집혀 날아와 채운다(stage1.js renderWork) — 그림에선 E 만(me.svg: M 0~205 · E 238~350) */
-/* 슬로건 — 맨 마지막 휠, 오른쪽 아래 (slogan.js). 자리·글자 크기는 JS 가 격자 높이에 맞춰.
-   --s1sloganCap: 대문자 높이(1920 기준 px, 초록 M 그림도 이 높이) · --s1sloganRun: M 이 접혀 달려가 펴지는 시간 · --s1sloganType: 한 글자 치는 간격 */
-#s1stage { --s1sloganCap: 64; --s1sloganRun: 1.4s; --s1sloganType: .06s }
+/* 슬로건 — 맨 마지막 휠, 왼쪽 위 첫 칸 (slogan.js). 자리·글자 크기는 JS 가 — 격자 폭에 꽉 차게, 대문자가 격자 윗선을 넘지 않게.
+   --s1sloganRun: M 이 접혀 달려가 펴지는 시간 · --s1sloganType: 한 글자 치는 간격 */
+#s1stage { --s1sloganRun: 1.4s; --s1sloganType: .06s }
 #s1slogan {
   position: absolute; left: 0; top: 0; margin: 0; display: none; pointer-events: none;
   font-family: 'Chillax', var(--grot); font-weight: 500; line-height: 1; color: #0C0C0C; white-space: pre;

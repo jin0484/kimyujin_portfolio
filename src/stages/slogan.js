@@ -7,9 +7,9 @@
  *   휠을 올리면 같은 시간축을 거꾸로 — 뒤에서부터 지워지고 M 이 선이 되어 ME 자리로 돌아간다.
  * 자리: 왼쪽 위 첫 칸 — 화면2 에서 WORK 가 있던 자리(2026-09-26 사용자 요청, 처음엔 오른쪽 아래였다). 왼끝은 W 와 같이 테두리에서 PAD 안쪽,
  *   기준선은 격자 첫 가로선(158 — ABOUT ME 때 새로 그려진 선. WORK 가 앉던 237 선은 그때 지워짐) 위라서 g·y 꼬리는 158·200 사이 띠에 걸린다.
- *   M 그림은 대문자 높이(--s1sloganCap × 격자 세로 배율)에 맞춰 줄어들어 도착하고,
+ *   크기는 격자 폭에 꽉 차게(양쪽 PAD 안쪽, 2026-09-26 사용자 요청) — 대문자가 격자 윗선을 넘지 않는 한에서. M 그림은 그 대문자 높이에 맞춰 줄어들어 도착하고,
  *   나머지는 Chillax Medium 검정(네모박스 DRAG 와 같은 영어 글꼴). Margin 의 M 은 검정 글자 — 색은 첫 M 하나만.
- * --s1sloganCap: 대문자 높이(1920 기준 px) · --s1sloganRun: M 이 접혀 달려가 펴지는 시간 · --s1sloganType: 한 글자 치는 간격 (stage1.css)
+ * --s1sloganRun: M 이 접혀 달려가 펴지는 시간 · --s1sloganType: 한 글자 치는 간격 (stage1.css)
  */
 import { $, tempo } from '../utils.js';
 
@@ -37,8 +37,11 @@ function metrics() {                                         // Chillax 치수 �
 }
 function layout() {
   if (!fm) fm = metrics();
-  const sy = Math.max(1, stageH - 120) / 960, cap = (parseFloat(css('--s1sloganCap')) || 64) * sy;
-  const fs = cap / fm.cap, h = cap, w = h * M_RATIO, gap = GAP * fs, tw = fm.w * fs;
+  // 크기 = 격자 폭에 꽉 차게(양쪽 PAD 안쪽). M 그림 폭 + 틈 + 나머지 글자 폭 = 대문자 높이 × (M_RATIO + (GAP + 글자 폭) ÷ 대문자 비율).
+  // 단 대문자가 격자 윗선을 넘지 않게(첫 가로선 위 공간 − PAD) — 세로가 짧은 화면이면 폭을 덜 채운다
+  const sy = Math.max(1, stageH - 120) / 960;
+  const cap = Math.min((1800 - 2 * PAD) / (M_RATIO + (GAP + fm.w) / fm.cap), LINE * sy - PAD);
+  const fs = cap / fm.cap, h = cap, w = h * M_RATIO, gap = GAP * fs;
   const x = 60 + PAD, base = 60 + LINE * sy;                // 왼끝 = W 와 같이 테두리에서 PAD 안쪽 · 기준선 = 첫 가로선
   lay = { x, w, h, fs, tx: x + w + gap, base };
   el.style.fontSize = fs + 'px';
